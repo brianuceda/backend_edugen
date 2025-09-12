@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework_simplejwt',
     # Apps
+    'api',
     'accounts',
     'academic',
     'portfolios',
@@ -153,3 +154,15 @@ AUTH_USER_MODEL = 'accounts.CustomUser'
 
 # CORS settings
 CORS_ALLOW_ALL_ORIGINS = True  # para dev; en prod usa CORS_ALLOWED_ORIGINS
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
