@@ -29,4 +29,5 @@ urlpatterns = [
     path("api/v1/ai/",         include("ai_content_generator.urls")),
     path("api/v1/scorm/",      include("scorm_packager.urls")),
     path("api/v1/dashboard/",  include("dashboard.urls")),
+    path("api/v1/director/",   include("director.urls")),
 ]

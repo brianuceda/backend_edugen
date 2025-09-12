@@ -13,6 +13,13 @@ class UserViewSet(viewsets.ModelViewSet):
     queryset = CustomUser.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        # Solo permitir ver usuarios de la misma institución
+        if self.request.user.role == 'DIRECTOR':
+            return CustomUser.objects.filter(institution=self.request.user.institution)
+        # Los profesores y alumnos solo pueden ver su propia información
+        return CustomUser.objects.filter(id=self.request.user.id)
 
     @action(detail=False, methods=['get'])
     def me(self, request):

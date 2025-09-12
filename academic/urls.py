@@ -3,9 +3,11 @@ from rest_framework.routers import DefaultRouter
 from . import views
 
 router = DefaultRouter()
-# Agregar ViewSets cuando estén implementados
-# router.register(r'courses', views.CourseViewSet)
-# router.register(r'sections', views.SectionViewSet)
+router.register(r'courses', views.CourseViewSet)
+router.register(r'sections', views.SectionViewSet)
+router.register(r'enrollments', views.EnrollmentViewSet)
+router.register(r'assessments', views.AssessmentViewSet)
+router.register(r'grades', views.GradeViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

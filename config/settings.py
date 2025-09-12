@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'ai_content_generator',
     'scorm_packager',
     'dashboard',
+    'director',
 ]
 
 MIDDLEWARE = [
