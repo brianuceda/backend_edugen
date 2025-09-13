@@ -71,14 +71,37 @@ class DirectorUserSerializer(serializers.ModelSerializer):
             if user.role == 'PROFESOR':
                 user.sections_taught.set(assigned_sections_ids)
             elif user.role == 'ALUMNO':
-                # Para estudiantes, crear enrollments
+                # Para estudiantes, crear enrollments y portafolios
                 from academic.models import Enrollment
+                from portfolios.models import Portfolio
+                
                 for section_id in assigned_sections_ids:
-                    Enrollment.objects.get_or_create(
+                    # Crear enrollment
+                    enrollment, created = Enrollment.objects.get_or_create(
                         student=user,
                         section_id=section_id,
                         defaults={'is_active': True}
                     )
+                    
+                    # Crear portafolio automáticamente para cada sección
+                    if created:
+                        portfolio, portfolio_created = Portfolio.objects.get_or_create(
+                            student=user,
+                            section=enrollment.section,
+                            defaults={
+                                'title': f"Portafolio de {user.first_name} {user.last_name} - {enrollment.section.name}",
+                                'description': f"Portafolio personal para el salón {enrollment.section.name}",
+                                'is_public': False
+                            }
+                        )
+                        
+                        # Si la sección tiene curso, agregarlo al portafolio
+                        if enrollment.section.course:
+                            from portfolios.models import PortfolioCourse
+                            PortfolioCourse.objects.get_or_create(
+                                portfolio=portfolio,
+                                course=enrollment.section.course
+                            )
         
         return user
     
@@ -95,17 +118,40 @@ class DirectorUserSerializer(serializers.ModelSerializer):
             if instance.role == 'PROFESOR':
                 instance.sections_taught.set(assigned_sections_ids)
             elif instance.role == 'ALUMNO':
-                # Para estudiantes, actualizar enrollments
+                # Para estudiantes, actualizar enrollments y portafolios
                 from academic.models import Enrollment
+                from portfolios.models import Portfolio
+                
                 # Desactivar enrollments existentes
                 Enrollment.objects.filter(student=instance).update(is_active=False)
-                # Crear nuevos enrollments
+                
+                # Crear nuevos enrollments y portafolios
                 for section_id in assigned_sections_ids:
-                    Enrollment.objects.get_or_create(
+                    enrollment, created = Enrollment.objects.get_or_create(
                         student=instance,
                         section_id=section_id,
                         defaults={'is_active': True}
                     )
+                    
+                    # Crear portafolio automáticamente para cada nueva sección
+                    if created:
+                        portfolio, portfolio_created = Portfolio.objects.get_or_create(
+                            student=instance,
+                            section=enrollment.section,
+                            defaults={
+                                'title': f"Portafolio de {instance.first_name} {instance.last_name} - {enrollment.section.name}",
+                                'description': f"Portafolio personal para el salón {enrollment.section.name}",
+                                'is_public': False
+                            }
+                        )
+                        
+                        # Si la sección tiene curso, agregarlo al portafolio
+                        if enrollment.section.course:
+                            from portfolios.models import PortfolioCourse
+                            PortfolioCourse.objects.get_or_create(
+                                portfolio=portfolio,
+                                course=enrollment.section.course
+                            )
         
         return instance
 

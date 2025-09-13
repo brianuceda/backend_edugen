@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Course, Section, Enrollment, Assessment, Grade
+from .models import Course, Topic, Section, Enrollment, Assessment, Grade
 from accounts.serializers import UserSerializer
 from institutions.serializers import InstitutionSerializer, TermSerializer
 
@@ -17,6 +17,40 @@ class CourseSerializer(serializers.ModelSerializer):
     def validate_description(self, value):
         """Handle empty description"""
         return value if value else ""
+
+
+class TopicSerializer(serializers.ModelSerializer):
+    course_name = serializers.CharField(source='course.name', read_only=True)
+    course_code = serializers.CharField(source='course.code', read_only=True)
+    professor_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Topic
+        fields = [
+            'id', 'name', 'description', 'course', 'course_name', 'course_code',
+            'professor', 'professor_name', 'order', 'is_active', 'created_at', 'updated_at'
+        ]
+        extra_kwargs = {
+            'course': {'required': True},
+            'professor': {'required': False}
+        }
+    
+    def get_professor_name(self, obj):
+        return f"{obj.professor.first_name} {obj.professor.last_name}" if obj.professor else ""
+    
+    def create(self, validated_data):
+        # Asignar el profesor actual al crear el tema
+        if 'professor' not in validated_data:
+            validated_data['professor'] = self.context['request'].user
+        
+        # Asignar orden automático si no se proporciona
+        if 'order' not in validated_data or validated_data['order'] == 0:
+            course = validated_data['course']
+            # Obtener el último orden para este curso y agregar 1
+            last_topic = Topic.objects.filter(course=course).order_by('-order').first()
+            validated_data['order'] = (last_topic.order + 1) if last_topic else 1
+        
+        return super().create(validated_data)
 
 
 class SectionSerializer(serializers.ModelSerializer):

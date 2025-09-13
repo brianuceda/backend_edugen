@@ -2,8 +2,8 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from .models import Course, Section, Enrollment, Assessment, Grade
-from .serializers import CourseSerializer, SectionSerializer, EnrollmentSerializer, AssessmentSerializer, GradeSerializer
+from .models import Course, Topic, Section, Enrollment, Assessment, Grade
+from .serializers import CourseSerializer, TopicSerializer, SectionSerializer, EnrollmentSerializer, AssessmentSerializer, GradeSerializer
 
 
 class CourseViewSet(viewsets.ModelViewSet):
@@ -16,17 +16,17 @@ class CourseViewSet(viewsets.ModelViewSet):
         if self.request.user.role == 'DIRECTOR':
             return Course.objects.filter(institution=self.request.user.institution)
         elif self.request.user.role == 'PROFESOR':
-            # Los profesores pueden ver todos los cursos de su institución
-            return Course.objects.filter(institution=self.request.user.institution)
+            # Los profesores solo pueden ver los cursos que ellos crearon
+            return Course.objects.filter(professor=self.request.user)
         else:  # ALUMNO
             return Course.objects.filter(sections__enrollment__student=self.request.user)
     
     def perform_create(self, serializer):
-        # Asignar la institución del usuario al crear el curso
+        # Asignar la institución y profesor al crear el curso
         if self.request.user.role == 'PROFESOR':
             if not self.request.user.institution:
                 raise serializers.ValidationError("El usuario no tiene una institución asignada")
-            serializer.save(institution=self.request.user.institution)
+            serializer.save(institution=self.request.user.institution, professor=self.request.user)
         else:
             serializer.save()
 
@@ -43,6 +43,12 @@ class CourseViewSet(viewsets.ModelViewSet):
         if self.request.user.role == 'PROFESOR':
             if instance.institution != self.request.user.institution:
                 raise serializers.ValidationError("No tienes permisos para eliminar este curso")
+        
+        # Antes de eliminar el curso, remover las relaciones con portafolios
+        from portfolios.models import PortfolioCourse
+        PortfolioCourse.objects.filter(course=instance).delete()
+        
+        # Eliminar el curso (las secciones se quedarán sin curso por SET_NULL)
         instance.delete()
     
     @action(detail=True, methods=['post'], url_path='assign-to-sections')
@@ -60,13 +66,14 @@ class CourseViewSet(viewsets.ModelViewSet):
                 )
             
             # Verificar que las secciones existen y pertenecen a la institución del profesor
-            from academic.models import Section, GradeLevel
+            from academic.models import Section
+            from institutions.models import GradeLevel
             sections = []
+            
             for section_id in section_ids:
                 try:
                     section = Section.objects.get(id=section_id)
                     # Verificar que la sección pertenece a la institución del profesor
-                    # Las secciones están asociadas a la institución a través del term
                     if section.term.institution != request.user.institution:
                         return Response(
                             {'error': f'No tienes acceso a la sección {section.name}'}, 
@@ -97,10 +104,22 @@ class CourseViewSet(viewsets.ModelViewSet):
                             status=status.HTTP_404_NOT_FOUND
                         )
                 
+                # Actualizar portafolios existentes de estudiantes en esta sección
+                from portfolios.models import Portfolio, PortfolioCourse
+                portfolios_updated = Portfolio.objects.filter(section=section)
+                
+                for portfolio in portfolios_updated:
+                    # Agregar el curso al portafolio si no existe
+                    PortfolioCourse.objects.get_or_create(
+                        portfolio=portfolio,
+                        course=course
+                    )
+                
                 assigned_sections.append({
                     'id': section.id,
                     'name': section.name,
-                    'grade_level': section.grade_level.name if section.grade_level else None
+                    'grade_level': section.grade_level.name if section.grade_level else None,
+                    'portfolios_updated': portfolios_updated.count()
                 })
             
             return Response({
@@ -115,8 +134,62 @@ class CourseViewSet(viewsets.ModelViewSet):
             
         except Exception as e:
             return Response(
-                {'error': 'Error al asignar curso a las secciones'}, 
+                {'error': f'Error al asignar curso a las secciones: {str(e)}'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class TopicViewSet(viewsets.ModelViewSet):
+    """ViewSet para gestionar temas de cursos"""
+    queryset = Topic.objects.all()
+    serializer_class = TopicSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == 'PROFESOR':
+            # Los profesores solo pueden ver los temas de los cursos que crearon
+            return Topic.objects.filter(professor=user).select_related('course')
+        elif user.role == 'DIRECTOR':
+            # Los directores pueden ver todos los temas de su institución
+            return Topic.objects.filter(course__institution=user.institution).select_related('course')
+        else:  # ALUMNO
+            # Los estudiantes pueden ver los temas de los cursos en los que están inscritos
+            return Topic.objects.filter(
+                course__sections__enrollment__student=user
+            ).select_related('course')
+    
+    def perform_create(self, serializer):
+        # Asignar el profesor actual al crear el tema
+        serializer.save(professor=self.request.user)
+    
+    def perform_update(self, serializer):
+        # Verificar que el usuario puede editar este tema
+        topic = self.get_object()
+        if self.request.user.role == 'PROFESOR':
+            if topic.professor != self.request.user:
+                raise serializers.ValidationError("No tienes permisos para editar este tema")
+        serializer.save()
+    
+    def perform_destroy(self, instance):
+        # Verificar que el usuario puede eliminar este tema
+        if self.request.user.role == 'PROFESOR':
+            if instance.professor != self.request.user:
+                raise serializers.ValidationError("No tienes permisos para eliminar este tema")
+        instance.delete()
+    
+    @action(detail=False, methods=['get'], url_path='by-course/(?P<course_id>[^/.]+)')
+    def by_course(self, request, course_id=None):
+        """Obtener temas de un curso específico"""
+        try:
+            course = Course.objects.get(id=course_id)
+            topics = self.get_queryset().filter(course=course)
+            serializer = self.get_serializer(topics, many=True)
+            return Response(serializer.data)
+        except Course.DoesNotExist:
+            return Response(
+                {'error': 'Curso no encontrado'}, 
+                status=status.HTTP_404_NOT_FOUND
             )
 
 
@@ -128,11 +201,25 @@ class SectionViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         # Solo mostrar secciones de la institución del usuario
         if self.request.user.role == 'DIRECTOR':
-            return Section.objects.filter(course__institution=self.request.user.institution)
+            return Section.objects.filter(term__institution=self.request.user.institution)
         elif self.request.user.role == 'PROFESOR':
-            return Section.objects.filter(professors=self.request.user)
+            # Los profesores pueden ver todas las secciones de su institución para asignar cursos
+            return Section.objects.filter(term__institution=self.request.user.institution)
         else:  # ALUMNO
             return Section.objects.filter(enrollment__student=self.request.user)
+    
+    @action(detail=False, methods=['get'], url_path='my-sections')
+    def get_my_sections(self, request):
+        """Obtener secciones asignadas al profesor actual"""
+        if request.user.role == 'PROFESOR':
+            sections = Section.objects.filter(professors=request.user)
+            serializer = self.get_serializer(sections, many=True)
+            return Response(serializer.data)
+        else:
+            return Response(
+                {'error': 'Solo los profesores pueden acceder a esta información'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
     
     @action(detail=True, methods=['get'], url_path='students')
     def get_students(self, request, pk=None):
