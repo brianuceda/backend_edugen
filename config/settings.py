@@ -168,6 +168,10 @@ CORS_ALLOWED_HEADERS = [
     'x-requested-with',
 ]
 
+# DeepSeek API Configuration
+DEEPSEEK_API_KEY = 'sk-faabf6271e5b4b8ba86588fea024d0c6'
+DEEPSEEK_BASE_URL = 'https://api.deepseek.com/v1'
+
 # JWT Configuration
 from datetime import timedelta
 
