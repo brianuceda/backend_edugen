@@ -19,16 +19,24 @@ class Section(models.Model):
     name = models.CharField(max_length=100)
     capacity = models.IntegerField(default=30)
     created_at = models.DateTimeField(auto_now_add=True)
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='sections')
-    professor = models.ForeignKey(
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='sections', null=True, blank=True)
+    professors = models.ManyToManyField(
         settings.AUTH_USER_MODEL, 
-        on_delete=models.CASCADE,
-        limit_choices_to={'role': 'PROFESOR'}
+        limit_choices_to={'role': 'PROFESOR'},
+        related_name='sections_taught',
+        blank=True
     )
     term = models.ForeignKey('institutions.Term', on_delete=models.CASCADE)
+    grade_level = models.ForeignKey('institutions.GradeLevel', on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
-        return f"{self.course.name} - {self.name}"
+        if self.course:
+            return f"{self.course.name} - {self.name}"
+        return self.name
+    
+    def get_professors_display(self):
+        """Return a string representation of all professors"""
+        return ", ".join([prof.get_full_name() for prof in self.professors.all()])
 
 
 class Enrollment(models.Model):

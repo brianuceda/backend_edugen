@@ -7,4 +7,5 @@ router = DefaultRouter()
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('', views.dashboard_data, name='dashboard-data'),
 ]
