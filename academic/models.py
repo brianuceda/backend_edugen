@@ -116,3 +116,59 @@ class Grade(models.Model):
 
     def __str__(self):
         return f"{self.student.username} - {self.assessment.name}: {self.score}"
+
+
+class Material(models.Model):
+    """Modelo para materiales educativos que pueden ser asignados a temas"""
+    MATERIAL_TYPES = [
+        ('DOCUMENT', 'Documento'),
+        ('VIDEO', 'Video'),
+        ('AUDIO', 'Audio'),
+        ('IMAGE', 'Imagen'),
+        ('LINK', 'Enlace'),
+        ('OTHER', 'Otro'),
+    ]
+    
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    material_type = models.CharField(max_length=20, choices=MATERIAL_TYPES, default='DOCUMENT')
+    file = models.FileField(upload_to='materials/', null=True, blank=True)
+    url = models.URLField(blank=True, null=True)
+    topic = models.ForeignKey(Topic, on_delete=models.CASCADE, related_name='materials')
+    professor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        limit_choices_to={'role': 'PROFESOR'},
+        related_name='created_materials'
+    )
+    is_shared = models.BooleanField(default=True, help_text="True = material de clase, False = personalizado")
+    assigned_students = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        limit_choices_to={'role': 'ALUMNO'},
+        related_name='assigned_materials',
+        blank=True,
+        help_text="Estudiantes específicos para materiales personalizados"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Material'
+        verbose_name_plural = 'Materiales'
+
+    def __str__(self):
+        return f"{self.name} - {self.topic.name}"
+
+    def clean(self):
+        """Validar que el material tenga archivo o URL según el tipo"""
+        from django.core.exceptions import ValidationError
+        
+        if self.material_type == 'LINK' and not self.url:
+            raise ValidationError('Los materiales de tipo enlace deben tener una URL')
+        
+        if self.material_type != 'LINK' and not self.file:
+            raise ValidationError('Los materiales que no son enlaces deben tener un archivo')
+        
+        if self.url and self.file:
+            raise ValidationError('Un material no puede tener tanto archivo como URL')

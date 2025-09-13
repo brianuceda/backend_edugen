@@ -2,8 +2,9 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from .models import Course, Topic, Section, Enrollment, Assessment, Grade
-from .serializers import CourseSerializer, TopicSerializer, SectionSerializer, EnrollmentSerializer, AssessmentSerializer, GradeSerializer
+from django.db import models
+from .models import Course, Topic, Section, Enrollment, Assessment, Grade, Material
+from .serializers import CourseSerializer, TopicSerializer, SectionSerializer, EnrollmentSerializer, AssessmentSerializer, GradeSerializer, MaterialSerializer
 
 
 class CourseViewSet(viewsets.ModelViewSet):
@@ -135,6 +136,64 @@ class CourseViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response(
                 {'error': f'Error al asignar curso a las secciones: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['get'], url_path='students')
+    def get_students_by_course(self, request, pk=None):
+        """Obtener estudiantes que tienen este curso en su portafolio"""
+        try:
+            course = self.get_object()
+            
+            # Verificar que el profesor tenga acceso a este curso
+            if request.user.role == 'PROFESOR' and course.professor != request.user:
+                return Response(
+                    {'error': 'No tienes acceso a este curso'}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            # Obtener estudiantes que tienen este curso en su portafolio
+            from portfolios.models import PortfolioCourse
+            portfolio_courses = PortfolioCourse.objects.filter(
+                course=course
+            ).select_related('portfolio__student', 'portfolio__section')
+            
+            students_data = []
+            for portfolio_course in portfolio_courses:
+                student = portfolio_course.portfolio.student
+                section = portfolio_course.portfolio.section
+                students_data.append({
+                    'id': student.id,
+                    'username': student.username,
+                    'email': student.email,
+                    'first_name': student.first_name,
+                    'last_name': student.last_name,
+                    'section': {
+                        'id': section.id if section else None,
+                        'name': section.name if section else 'Sin sección'
+                    } if section else None,
+                    'added_at': portfolio_course.added_at,
+                    'portfolio_id': portfolio_course.portfolio.id
+                })
+            
+            return Response({
+                'course': {
+                    'id': course.id,
+                    'name': course.name,
+                    'code': course.code
+                },
+                'students': students_data,
+                'total_students': len(students_data)
+            })
+            
+        except Course.DoesNotExist:
+            return Response(
+                {'error': 'Curso no encontrado'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {'error': 'Error al obtener estudiantes'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -321,3 +380,101 @@ class GradeViewSet(viewsets.ModelViewSet):
             return Grade.objects.filter(assessment__section__professors=self.request.user)
         else:  # ALUMNO
             return Grade.objects.filter(student=self.request.user)
+
+
+class MaterialViewSet(viewsets.ModelViewSet):
+    """ViewSet para gestionar materiales educativos"""
+    queryset = Material.objects.all()
+    serializer_class = MaterialSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        # Filtrar materiales según el rol del usuario
+        if self.request.user.role == 'DIRECTOR':
+            return Material.objects.filter(topic__course__institution=self.request.user.institution)
+        elif self.request.user.role == 'PROFESOR':
+            return Material.objects.filter(professor=self.request.user)
+        else:  # ALUMNO
+            # Los estudiantes solo pueden ver materiales asignados a ellos o materiales compartidos
+            return Material.objects.filter(
+                models.Q(assigned_students=self.request.user) | 
+                models.Q(is_shared=True)
+            ).distinct()
+    
+    def perform_create(self, serializer):
+        # Asignar el profesor actual al crear el material
+        serializer.save(professor=self.request.user)
+    
+    @action(detail=False, methods=['get'], url_path='by-topic/(?P<topic_id>[^/.]+)')
+    def get_materials_by_topic(self, request, topic_id=None):
+        """Obtener materiales de un tema específico"""
+        try:
+            topic = Topic.objects.get(id=topic_id)
+            
+            # Verificar que el usuario tenga acceso al tema
+            if request.user.role == 'PROFESOR' and topic.professor != request.user:
+                return Response(
+                    {'error': 'No tienes acceso a este tema'}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            materials = Material.objects.filter(topic=topic)
+            serializer = self.get_serializer(materials, many=True)
+            
+            return Response({
+                'topic': {
+                    'id': topic.id,
+                    'name': topic.name,
+                    'course_name': topic.course.name,
+                    'course_code': topic.course.code
+                },
+                'materials': serializer.data,
+                'total_materials': materials.count()
+            })
+            
+        except Topic.DoesNotExist:
+            return Response(
+                {'error': 'Tema no encontrado'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {'error': 'Error al obtener materiales'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def create(self, request, *args, **kwargs):
+        """Override create method for error handling"""
+        try:
+            return super().create(request, *args, **kwargs)
+        except Exception as e:
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=False, methods=['post'], url_path='test-create')
+    def test_create_material(self, request):
+        """Endpoint de prueba para crear materiales sin autenticación"""
+        try:
+            # Crear un material de prueba
+            material = Material.objects.create(
+                name=request.data.get('name', 'Test Material'),
+                description=request.data.get('description', 'Test Description'),
+                material_type=request.data.get('material_type', 'DOCUMENT'),
+                topic_id=request.data.get('topic', 1),
+                professor_id=1,  # Usuario de prueba
+                is_shared=request.data.get('is_shared', True)
+            )
+            
+            return Response({
+                'message': 'Material de prueba creado exitosamente',
+                'material_id': material.id,
+                'material_name': material.name
+            })
+            
+        except Exception as e:
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )

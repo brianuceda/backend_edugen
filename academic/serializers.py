@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Course, Topic, Section, Enrollment, Assessment, Grade
+from .models import Course, Topic, Section, Enrollment, Assessment, Grade, Material
 from accounts.serializers import UserSerializer
 from institutions.serializers import InstitutionSerializer, TermSerializer
 
@@ -124,3 +124,114 @@ class GradeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Grade
         fields = '__all__'
+
+
+class MaterialSerializer(serializers.ModelSerializer):
+    topic_name = serializers.CharField(source='topic.name', read_only=True)
+    professor_name = serializers.SerializerMethodField()
+    assigned_students_data = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Material
+        fields = [
+            'id', 'name', 'description', 'material_type', 'file', 'url',
+            'topic', 'topic_name', 'professor', 'professor_name',
+            'is_shared', 'assigned_students', 'assigned_students_data',
+            'created_at', 'updated_at'
+        ]
+        extra_kwargs = {
+            'professor': {'required': False},
+            'assigned_students': {'required': False, 'many': True}
+        }
+    
+    def get_professor_name(self, obj):
+        return f"{obj.professor.first_name} {obj.professor.last_name}" if obj.professor else ""
+    
+    def get_assigned_students_data(self, obj):
+        """Return assigned students data"""
+        return [
+            {
+                'id': student.id,
+                'first_name': student.first_name,
+                'last_name': student.last_name,
+                'username': student.username
+            }
+            for student in obj.assigned_students.all()
+        ]
+    
+    def create(self, validated_data):
+        # Asignar el profesor actual al crear el material
+        if 'professor' not in validated_data:
+            validated_data['professor'] = self.context['request'].user
+        
+        # Obtener estudiantes asignados
+        assigned_students = validated_data.pop('assigned_students', [])
+        
+        # Crear el material
+        material = super().create(validated_data)
+        
+        # Asignar estudiantes si es material personalizado
+        if not validated_data.get('is_shared', True) and assigned_students:
+            material.assigned_students.set(assigned_students)
+        
+        return material
+    
+    def to_internal_value(self, data):
+        """Manejar FormData correctamente"""
+        if hasattr(data, 'getlist'):
+            # Es FormData, procesar campos múltiples
+            processed_data = {}
+            for key, value in data.items():
+                if key == 'assigned_students':
+                    # Manejar lista de estudiantes - convertir strings a enteros
+                    student_ids = data.getlist(key)
+                    processed_data[key] = [int(sid) for sid in student_ids if sid]
+                elif key == 'is_shared':
+                    # Convertir string a boolean
+                    processed_data[key] = value.lower() == 'true'
+                elif key == 'topic':
+                    # Convertir string a entero
+                    processed_data[key] = int(value)
+                elif key == 'file':
+                    # Solo incluir el archivo si existe y no está vacío
+                    if value and value != {} and value != '':
+                        processed_data[key] = value
+                else:
+                    processed_data[key] = value
+            return super().to_internal_value(processed_data)
+        
+        return super().to_internal_value(data)
+    
+    def update(self, instance, validated_data):
+        # Obtener estudiantes asignados
+        assigned_students = validated_data.pop('assigned_students', None)
+        
+        # Actualizar el material
+        material = super().update(instance, validated_data)
+        
+        # Actualizar estudiantes asignados si se proporcionan
+        if assigned_students is not None:
+            material.assigned_students.set(assigned_students)
+        
+        return material
+    
+    def validate(self, data):
+        """Validar que el material tenga archivo o URL según el tipo"""
+        material_type = data.get('material_type')
+        file = data.get('file')
+        url = data.get('url')
+        
+        # Validaciones básicas
+        if material_type == 'LINK' and not url:
+            raise serializers.ValidationError('Los materiales de tipo enlace deben tener una URL')
+        
+        # Verificar si hay un archivo válido (no vacío ni None)
+        has_valid_file = file is not None and file != {} and file != '' and hasattr(file, 'name')
+        
+        if material_type != 'LINK' and not has_valid_file:
+            raise serializers.ValidationError('Los materiales que no son enlaces deben tener un archivo')
+        
+        if url and has_valid_file:
+            raise serializers.ValidationError('Un material no puede tener tanto archivo como URL')
+        
+        return data
