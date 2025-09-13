@@ -10,6 +10,13 @@ class CourseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Course
         fields = '__all__'
+        extra_kwargs = {
+            'institution': {'required': False}
+        }
+    
+    def validate_description(self, value):
+        """Handle empty description"""
+        return value if value else ""
 
 
 class SectionSerializer(serializers.ModelSerializer):

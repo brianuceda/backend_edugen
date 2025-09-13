@@ -16,9 +16,108 @@ class CourseViewSet(viewsets.ModelViewSet):
         if self.request.user.role == 'DIRECTOR':
             return Course.objects.filter(institution=self.request.user.institution)
         elif self.request.user.role == 'PROFESOR':
-            return Course.objects.filter(sections__professors=self.request.user)
+            # Los profesores pueden ver todos los cursos de su institución
+            return Course.objects.filter(institution=self.request.user.institution)
         else:  # ALUMNO
             return Course.objects.filter(sections__enrollment__student=self.request.user)
+    
+    def perform_create(self, serializer):
+        # Asignar la institución del usuario al crear el curso
+        if self.request.user.role == 'PROFESOR':
+            if not self.request.user.institution:
+                raise serializers.ValidationError("El usuario no tiene una institución asignada")
+            serializer.save(institution=self.request.user.institution)
+        else:
+            serializer.save()
+
+    def perform_update(self, serializer):
+        # Verificar que el usuario puede editar este curso
+        course = self.get_object()
+        if self.request.user.role == 'PROFESOR':
+            if course.institution != self.request.user.institution:
+                raise serializers.ValidationError("No tienes permisos para editar este curso")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        # Verificar que el usuario puede eliminar este curso
+        if self.request.user.role == 'PROFESOR':
+            if instance.institution != self.request.user.institution:
+                raise serializers.ValidationError("No tienes permisos para eliminar este curso")
+        instance.delete()
+    
+    @action(detail=True, methods=['post'], url_path='assign-to-sections')
+    def assign_to_sections(self, request, pk=None):
+        """Asignar curso a múltiples secciones"""
+        try:
+            course = self.get_object()
+            section_ids = request.data.get('section_ids', [])
+            grade_level_id = request.data.get('grade_level_id')
+            
+            if not section_ids:
+                return Response(
+                    {'error': 'section_ids es requerido'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Verificar que las secciones existen y pertenecen a la institución del profesor
+            from academic.models import Section, GradeLevel
+            sections = []
+            for section_id in section_ids:
+                try:
+                    section = Section.objects.get(id=section_id)
+                    # Verificar que la sección pertenece a la institución del profesor
+                    # Las secciones están asociadas a la institución a través del term
+                    if section.term.institution != request.user.institution:
+                        return Response(
+                            {'error': f'No tienes acceso a la sección {section.name}'}, 
+                            status=status.HTTP_403_FORBIDDEN
+                        )
+                    sections.append(section)
+                except Section.DoesNotExist:
+                    return Response(
+                        {'error': f'Sección {section_id} no encontrada'}, 
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+            
+            # Asignar el curso a todas las secciones
+            assigned_sections = []
+            for section in sections:
+                section.course = course
+                section.save()
+                
+                # Si se proporciona grade_level, asignarlo también
+                if grade_level_id:
+                    try:
+                        grade_level = GradeLevel.objects.get(id=grade_level_id)
+                        section.grade_level = grade_level
+                        section.save()
+                    except GradeLevel.DoesNotExist:
+                        return Response(
+                            {'error': 'Grado no encontrado'}, 
+                            status=status.HTTP_404_NOT_FOUND
+                        )
+                
+                assigned_sections.append({
+                    'id': section.id,
+                    'name': section.name,
+                    'grade_level': section.grade_level.name if section.grade_level else None
+                })
+            
+            return Response({
+                'message': f'Curso asignado exitosamente a {len(assigned_sections)} secciones',
+                'course': {
+                    'id': course.id,
+                    'name': course.name,
+                    'code': course.code
+                },
+                'sections': assigned_sections
+            })
+            
+        except Exception as e:
+            return Response(
+                {'error': 'Error al asignar curso a las secciones'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class SectionViewSet(viewsets.ModelViewSet):
