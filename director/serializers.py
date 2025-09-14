@@ -133,25 +133,29 @@ class DirectorUserSerializer(serializers.ModelSerializer):
                         defaults={'is_active': True}
                     )
                     
-                    # Crear portafolio automáticamente para cada nueva sección
-                    if created:
-                        portfolio, portfolio_created = Portfolio.objects.get_or_create(
-                            student=instance,
-                            section=enrollment.section,
-                            defaults={
-                                'title': f"Portafolio de {instance.first_name} {instance.last_name} - {enrollment.section.name}",
-                                'description': f"Portafolio personal para el salón {enrollment.section.name}",
-                                'is_public': False
-                            }
+                    # Si el enrollment ya existía pero estaba desactivado, reactivarlo
+                    if not created:
+                        enrollment.is_active = True
+                        enrollment.save()
+                    
+                    # Crear portafolio automáticamente para cada sección (nueva o reactivada)
+                    portfolio, portfolio_created = Portfolio.objects.get_or_create(
+                        student=instance,
+                        section=enrollment.section,
+                        defaults={
+                            'title': f"Portafolio de {instance.first_name} {instance.last_name} - {enrollment.section.name}",
+                            'description': f"Portafolio personal para el salón {enrollment.section.name}",
+                            'is_public': False
+                        }
+                    )
+                    
+                    # Si la sección tiene curso, agregarlo al portafolio
+                    if enrollment.section.course:
+                        from portfolios.models import PortfolioCourse
+                        PortfolioCourse.objects.get_or_create(
+                            portfolio=portfolio,
+                            course=enrollment.section.course
                         )
-                        
-                        # Si la sección tiene curso, agregarlo al portafolio
-                        if enrollment.section.course:
-                            from portfolios.models import PortfolioCourse
-                            PortfolioCourse.objects.get_or_create(
-                                portfolio=portfolio,
-                                course=enrollment.section.course
-                            )
         
         return instance
 
