@@ -1,5 +1,8 @@
 from rest_framework import serializers
-from .models import Course, Topic, Section, Enrollment, Assessment, Grade, Material
+from .models import (
+    Course, Topic, Section, Enrollment, Assessment, Grade, Material,
+    MaterialViewingSession, MaterialInteraction, MaterialAnalytics
+)
 from accounts.serializers import UserSerializer
 from institutions.serializers import InstitutionSerializer, TermSerializer
 
@@ -235,3 +238,99 @@ class MaterialSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Un material no puede tener tanto archivo como URL')
         
         return data
+
+
+class MaterialViewingSessionSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source='student.get_full_name', read_only=True)
+    material_name = serializers.CharField(source='material.name', read_only=True)
+    duration_formatted = serializers.CharField(read_only=True)
+    
+    class Meta:
+        model = MaterialViewingSession
+        fields = [
+            'id', 'student', 'student_name', 'material', 'material_name',
+            'started_at', 'ended_at', 'duration_seconds', 'duration_formatted',
+            'is_completed', 'progress_percentage', 'last_activity'
+        ]
+        read_only_fields = ['started_at', 'last_activity']
+
+
+class MaterialInteractionSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source='session.student.get_full_name', read_only=True)
+    material_name = serializers.CharField(source='session.material.name', read_only=True)
+    
+    class Meta:
+        model = MaterialInteraction
+        fields = [
+            'id', 'session', 'interaction_type', 'timestamp', 'metadata',
+            'student_name', 'material_name'
+        ]
+        read_only_fields = ['timestamp']
+
+
+class MaterialAnalyticsSerializer(serializers.ModelSerializer):
+    material_name = serializers.CharField(source='material.name', read_only=True)
+    average_duration_formatted = serializers.SerializerMethodField()
+    total_duration_formatted = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = MaterialAnalytics
+        fields = [
+            'id', 'material', 'material_name', 'total_views', 'unique_viewers',
+            'total_duration', 'total_duration_formatted', 'average_duration',
+            'average_duration_formatted', 'completion_rate', 'last_updated'
+        ]
+        read_only_fields = ['last_updated']
+    
+    def get_average_duration_formatted(self, obj):
+        """Retorna la duración promedio en formato legible"""
+        hours = int(obj.average_duration // 3600)
+        minutes = int((obj.average_duration % 3600) // 60)
+        seconds = int(obj.average_duration % 60)
+        
+        if hours > 0:
+            return f"{hours}h {minutes}m {seconds}s"
+        elif minutes > 0:
+            return f"{minutes}m {seconds}s"
+        else:
+            return f"{seconds}s"
+    
+    def get_total_duration_formatted(self, obj):
+        """Retorna la duración total en formato legible"""
+        hours = obj.total_duration // 3600
+        minutes = (obj.total_duration % 3600) // 60
+        seconds = obj.total_duration % 60
+        
+        if hours > 0:
+            return f"{hours}h {minutes}m {seconds}s"
+        elif minutes > 0:
+            return f"{minutes}m {seconds}s"
+        else:
+            return f"{seconds}s"
+
+
+class MaterialWithAnalyticsSerializer(MaterialSerializer):
+    """Serializer que incluye analytics del material"""
+    analytics = MaterialAnalyticsSerializer(read_only=True)
+    
+    class Meta(MaterialSerializer.Meta):
+        fields = MaterialSerializer.Meta.fields + ['analytics']
+
+
+class MaterialTrackingSerializer(serializers.Serializer):
+    """Serializer para tracking de visualización de materiales"""
+    material_id = serializers.IntegerField()
+    action = serializers.ChoiceField(choices=[
+        'start', 'pause', 'resume', 'seek', 'complete', 'abandon'
+    ])
+    progress_percentage = serializers.FloatField(min_value=0, max_value=100, required=False)
+    duration_seconds = serializers.IntegerField(min_value=0, required=False)
+    metadata = serializers.JSONField(required=False, default=dict)
+    
+    def validate_material_id(self, value):
+        """Validar que el material existe"""
+        try:
+            Material.objects.get(id=value)
+        except Material.DoesNotExist:
+            raise serializers.ValidationError("El material no existe")
+        return value

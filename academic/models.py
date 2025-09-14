@@ -172,3 +172,98 @@ class Material(models.Model):
         
         if self.url and self.file:
             raise ValidationError('Un material no puede tener tanto archivo como URL')
+
+
+class MaterialViewingSession(models.Model):
+    """Modelo para rastrear las sesiones de visualización de materiales por parte de los estudiantes"""
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        limit_choices_to={'role': 'ALUMNO'},
+        related_name='material_viewing_sessions'
+    )
+    material = models.ForeignKey(Material, on_delete=models.CASCADE, related_name='viewing_sessions')
+    started_at = models.DateTimeField(auto_now_add=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+    duration_seconds = models.PositiveIntegerField(default=0, help_text="Duración total en segundos")
+    is_completed = models.BooleanField(default=False, help_text="Si el estudiante completó la visualización")
+    progress_percentage = models.FloatField(default=0.0, help_text="Porcentaje de progreso (0-100)")
+    last_activity = models.DateTimeField(auto_now=True, help_text="Última actividad registrada")
+    
+    class Meta:
+        ordering = ['-started_at']
+        unique_together = ('student', 'material', 'started_at')
+        verbose_name = 'Sesión de Visualización'
+        verbose_name_plural = 'Sesiones de Visualización'
+    
+    def __str__(self):
+        return f"{self.student.username} - {self.material.name} ({self.duration_seconds}s)"
+    
+    @property
+    def duration_formatted(self):
+        """Retorna la duración en formato legible"""
+        hours = self.duration_seconds // 3600
+        minutes = (self.duration_seconds % 3600) // 60
+        seconds = self.duration_seconds % 60
+        
+        if hours > 0:
+            return f"{hours}h {minutes}m {seconds}s"
+        elif minutes > 0:
+            return f"{minutes}m {seconds}s"
+        else:
+            return f"{seconds}s"
+
+
+class MaterialInteraction(models.Model):
+    """Modelo para rastrear interacciones específicas con materiales"""
+    INTERACTION_TYPES = [
+        ('PLAY', 'Reproducir'),
+        ('PAUSE', 'Pausar'),
+        ('SEEK', 'Buscar'),
+        ('DOWNLOAD', 'Descargar'),
+        ('COMPLETE', 'Completar'),
+        ('ABANDON', 'Abandonar'),
+    ]
+    
+    session = models.ForeignKey(MaterialViewingSession, on_delete=models.CASCADE, related_name='interactions')
+    interaction_type = models.CharField(max_length=20, choices=INTERACTION_TYPES)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    metadata = models.JSONField(default=dict, blank=True, help_text="Datos adicionales como posición de video, etc.")
+    
+    class Meta:
+        ordering = ['-timestamp']
+        verbose_name = 'Interacción con Material'
+        verbose_name_plural = 'Interacciones con Materiales'
+    
+    def __str__(self):
+        return f"{self.session.student.username} - {self.get_interaction_type_display()} - {self.timestamp}"
+
+
+class MaterialAnalytics(models.Model):
+    """Modelo para almacenar KPIs y métricas agregadas de materiales"""
+    material = models.OneToOneField(Material, on_delete=models.CASCADE, related_name='analytics')
+    total_views = models.PositiveIntegerField(default=0)
+    unique_viewers = models.PositiveIntegerField(default=0)
+    total_duration = models.PositiveIntegerField(default=0, help_text="Duración total en segundos")
+    average_duration = models.FloatField(default=0.0, help_text="Duración promedio en segundos")
+    completion_rate = models.FloatField(default=0.0, help_text="Tasa de finalización (0-100)")
+    last_updated = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Analítica de Material'
+        verbose_name_plural = 'Analíticas de Materiales'
+    
+    def __str__(self):
+        return f"Analytics - {self.material.name}"
+    
+    def update_analytics(self):
+        """Actualiza las métricas basadas en las sesiones de visualización"""
+        sessions = self.material.viewing_sessions.all()
+        
+        self.total_views = sessions.count()
+        self.unique_viewers = sessions.values('student').distinct().count()
+        self.total_duration = sum(session.duration_seconds for session in sessions)
+        self.average_duration = self.total_duration / self.total_views if self.total_views > 0 else 0
+        self.completion_rate = (sessions.filter(is_completed=True).count() / self.total_views * 100) if self.total_views > 0 else 0
+        
+        self.save()

@@ -2,9 +2,20 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.viewsets import GenericViewSet
 from django.db import models
-from .models import Course, Topic, Section, Enrollment, Assessment, Grade, Material
-from .serializers import CourseSerializer, TopicSerializer, SectionSerializer, EnrollmentSerializer, AssessmentSerializer, GradeSerializer, MaterialSerializer
+from django.utils import timezone
+from django.db.models import Q, Count, Avg, Sum
+from .models import (
+    Course, Topic, Section, Enrollment, Assessment, Grade, Material,
+    MaterialViewingSession, MaterialInteraction, MaterialAnalytics
+)
+from .serializers import (
+    CourseSerializer, TopicSerializer, SectionSerializer, EnrollmentSerializer, 
+    AssessmentSerializer, GradeSerializer, MaterialSerializer,
+    MaterialViewingSessionSerializer, MaterialInteractionSerializer, 
+    MaterialAnalyticsSerializer, MaterialWithAnalyticsSerializer, MaterialTrackingSerializer
+)
 
 
 class CourseViewSet(viewsets.ModelViewSet):
@@ -389,14 +400,21 @@ class MaterialViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
+        queryset = Material.objects.all()
+        
+        # Filtrar por tema si se especifica
+        topic_id = self.request.query_params.get('topic')
+        if topic_id:
+            queryset = queryset.filter(topic_id=topic_id)
+        
         # Filtrar materiales según el rol del usuario
         if self.request.user.role == 'DIRECTOR':
-            return Material.objects.filter(topic__course__institution=self.request.user.institution)
+            return queryset.filter(topic__course__institution=self.request.user.institution)
         elif self.request.user.role == 'PROFESOR':
-            return Material.objects.filter(professor=self.request.user)
+            return queryset.filter(professor=self.request.user)
         else:  # ALUMNO
             # Los estudiantes solo pueden ver materiales asignados a ellos o materiales compartidos
-            return Material.objects.filter(
+            return queryset.filter(
                 models.Q(assigned_students=self.request.user) | 
                 models.Q(is_shared=True)
             ).distinct()
@@ -478,3 +496,270 @@ class MaterialViewSet(viewsets.ModelViewSet):
                 {'error': str(e)}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+
+class MaterialViewingSessionViewSet(viewsets.ReadOnlyModelViewSet):
+    """ViewSet para ver sesiones de visualización de materiales"""
+    serializer_class = MaterialViewingSessionSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = MaterialViewingSession.objects.all()
+    
+    def get_queryset(self):
+        if self.request.user.role == 'PROFESOR':
+            # Los profesores pueden ver las sesiones de sus materiales
+            return MaterialViewingSession.objects.filter(
+                material__professor=self.request.user
+            ).select_related('student', 'material')
+        elif self.request.user.role == 'ALUMNO':
+            # Los estudiantes solo pueden ver sus propias sesiones
+            return MaterialViewingSession.objects.filter(
+                student=self.request.user
+            ).select_related('student', 'material')
+        else:
+            return MaterialViewingSession.objects.none()
+
+
+class MaterialInteractionViewSet(viewsets.ReadOnlyModelViewSet):
+    """ViewSet para ver interacciones con materiales"""
+    serializer_class = MaterialInteractionSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = MaterialInteraction.objects.all()
+    
+    def get_queryset(self):
+        if self.request.user.role == 'PROFESOR':
+            # Los profesores pueden ver las interacciones de sus materiales
+            return MaterialInteraction.objects.filter(
+                session__material__professor=self.request.user
+            ).select_related('session__student', 'session__material')
+        elif self.request.user.role == 'ALUMNO':
+            # Los estudiantes solo pueden ver sus propias interacciones
+            return MaterialInteraction.objects.filter(
+                session__student=self.request.user
+            ).select_related('session__student', 'session__material')
+        else:
+            return MaterialInteraction.objects.none()
+
+
+class MaterialAnalyticsViewSet(viewsets.ReadOnlyModelViewSet):
+    """ViewSet para ver analytics de materiales"""
+    serializer_class = MaterialAnalyticsSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = MaterialAnalytics.objects.all()
+    
+    def get_queryset(self):
+        if self.request.user.role == 'PROFESOR':
+            # Los profesores pueden ver analytics de sus materiales
+            return MaterialAnalytics.objects.filter(
+                material__professor=self.request.user
+            ).select_related('material')
+        else:
+            return MaterialAnalytics.objects.none()
+
+
+class MaterialTrackingViewSet(GenericViewSet):
+    """ViewSet para tracking de visualización de materiales"""
+    permission_classes = [IsAuthenticated]
+    queryset = MaterialViewingSession.objects.none()
+    
+    @action(detail=False, methods=['post'], url_path='track')
+    def track_material(self, request):
+        """Endpoint para rastrear la visualización de materiales"""
+        if request.user.role != 'ALUMNO':
+            return Response(
+                {'error': 'Solo los estudiantes pueden rastrear materiales'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        serializer = MaterialTrackingSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        data = serializer.validated_data
+        material_id = data['material_id']
+        action_type = data['action']
+        progress_percentage = data.get('progress_percentage', 0)
+        duration_seconds = data.get('duration_seconds', 0)
+        metadata = data.get('metadata', {})
+        
+        try:
+            material = Material.objects.get(id=material_id)
+            
+            # Verificar que el estudiante tiene acceso al material
+            if not self._has_access_to_material(request.user, material):
+                return Response(
+                    {'error': 'No tienes acceso a este material'}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            # Obtener o crear sesión activa
+            session, created = MaterialViewingSession.objects.get_or_create(
+                student=request.user,
+                material=material,
+                ended_at__isnull=True,
+                defaults={'started_at': timezone.now()}
+            )
+            
+            # Actualizar sesión según la acción
+            if action_type == 'start':
+                if created:
+                    # Crear interacción de inicio
+                    MaterialInteraction.objects.create(
+                        session=session,
+                        interaction_type='PLAY',
+                        metadata=metadata
+                    )
+                else:
+                    # Reanudar sesión existente
+                    MaterialInteraction.objects.create(
+                        session=session,
+                        interaction_type='PLAY',
+                        metadata=metadata
+                    )
+            
+            elif action_type == 'pause':
+                MaterialInteraction.objects.create(
+                    session=session,
+                    interaction_type='PAUSE',
+                    metadata=metadata
+                )
+            
+            elif action_type == 'seek':
+                MaterialInteraction.objects.create(
+                    session=session,
+                    interaction_type='SEEK',
+                    metadata=metadata
+                )
+            
+            elif action_type == 'complete':
+                session.ended_at = timezone.now()
+                session.is_completed = True
+                session.progress_percentage = 100.0
+                session.duration_seconds = duration_seconds
+                session.save()
+                
+                MaterialInteraction.objects.create(
+                    session=session,
+                    interaction_type='COMPLETE',
+                    metadata=metadata
+                )
+                
+                # Actualizar analytics
+                self._update_material_analytics(material)
+            
+            elif action_type == 'abandon':
+                session.ended_at = timezone.now()
+                session.is_completed = False
+                session.progress_percentage = progress_percentage
+                session.duration_seconds = duration_seconds
+                session.save()
+                
+                MaterialInteraction.objects.create(
+                    session=session,
+                    interaction_type='ABANDON',
+                    metadata=metadata
+                )
+                
+                # Actualizar analytics
+                self._update_material_analytics(material)
+            
+            else:  # resume o actualización de progreso
+                session.progress_percentage = progress_percentage
+                session.duration_seconds = duration_seconds
+                session.save()
+            
+            return Response({
+                'success': True,
+                'session_id': session.id,
+                'action': action_type,
+                'progress': session.progress_percentage
+            })
+            
+        except Material.DoesNotExist:
+            return Response(
+                {'error': 'Material no encontrado'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def _has_access_to_material(self, student, material):
+        """Verificar si el estudiante tiene acceso al material"""
+        # Si es material compartido, verificar que el estudiante esté en una sección del curso
+        if material.is_shared:
+            return Enrollment.objects.filter(
+                student=student,
+                section__course=material.topic.course,
+                is_active=True
+            ).exists()
+        
+        # Si es material personalizado, verificar que esté asignado al estudiante
+        return material.assigned_students.filter(id=student.id).exists()
+    
+    def _update_material_analytics(self, material):
+        """Actualizar analytics del material"""
+        analytics, created = MaterialAnalytics.objects.get_or_create(material=material)
+        analytics.update_analytics()
+    
+    @action(detail=False, methods=['get'], url_path='my-materials')
+    def my_materials_with_analytics(self, request):
+        """Obtener materiales del estudiante con analytics"""
+        if request.user.role != 'ALUMNO':
+            return Response(
+                {'error': 'Solo los estudiantes pueden acceder a este endpoint'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Obtener materiales accesibles para el estudiante
+        accessible_materials = Material.objects.filter(
+            Q(is_shared=True, topic__course__sections__enrollment__student=request.user) |
+            Q(is_shared=False, assigned_students=request.user)
+        ).distinct().select_related('topic', 'professor')
+        
+        serializer = MaterialWithAnalyticsSerializer(accessible_materials, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'], url_path='professor-analytics')
+    def professor_analytics(self, request):
+        """Obtener analytics para profesores"""
+        if request.user.role != 'PROFESOR':
+            return Response(
+                {'error': 'Solo los profesores pueden acceder a este endpoint'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Obtener KPIs generales
+        materials = Material.objects.filter(professor=request.user)
+        total_materials = materials.count()
+        
+        # Obtener analytics agregadas
+        analytics_data = MaterialAnalytics.objects.filter(
+            material__professor=request.user
+        ).aggregate(
+            total_views=Sum('total_views'),
+            total_unique_viewers=Sum('unique_viewers'),
+            total_duration=Sum('total_duration'),
+            avg_completion_rate=Avg('completion_rate')
+        )
+        
+        # Obtener materiales más populares
+        popular_materials = MaterialAnalytics.objects.filter(
+            material__professor=request.user
+        ).order_by('-total_views')[:5]
+        
+        # Obtener estudiantes más activos
+        active_students = MaterialViewingSession.objects.filter(
+            material__professor=request.user
+        ).values('student__username', 'student__first_name', 'student__last_name').annotate(
+            total_sessions=Count('id'),
+            total_duration=Sum('duration_seconds')
+        ).order_by('-total_duration')[:10]
+        
+        return Response({
+            'total_materials': total_materials,
+            'analytics': analytics_data,
+            'popular_materials': MaterialAnalyticsSerializer(popular_materials, many=True).data,
+            'active_students': active_students
+        })

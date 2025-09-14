@@ -32,3 +32,7 @@ urlpatterns = [
     path("api/v1/dashboard/",  include("dashboard.urls")),
     path("api/v1/director/",   include("director.urls")),
 ]
+
+# Servir archivos de media en desarrollo
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

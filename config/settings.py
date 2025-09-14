@@ -153,6 +153,13 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Custom User Model
 AUTH_USER_MODEL = 'accounts.CustomUser'
 
+# Security settings
+if DEBUG:
+    X_FRAME_OPTIONS = 'ALLOWALL'  # Allow all iframes in development
+    SECURE_CROSS_ORIGIN_OPENER_POLICY = None  # Disable COOP for iframe compatibility
+else:
+    X_FRAME_OPTIONS = 'SAMEORIGIN'  # Allow iframes from same origin in production
+
 # CORS settings
 CORS_ALLOW_ALL_ORIGINS = True  # para dev; en prod usa CORS_ALLOWED_ORIGINS
 CORS_ALLOW_CREDENTIALS = True
