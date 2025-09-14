@@ -131,6 +131,9 @@ class GradeSerializer(serializers.ModelSerializer):
 
 class MaterialSerializer(serializers.ModelSerializer):
     topic_name = serializers.CharField(source='topic.name', read_only=True)
+    course_id = serializers.IntegerField(source='topic.course.id', read_only=True)
+    course_name = serializers.CharField(source='topic.course.name', read_only=True)
+    course_code = serializers.CharField(source='topic.course.code', read_only=True)
     professor_name = serializers.SerializerMethodField()
     assigned_students_data = serializers.SerializerMethodField()
     
@@ -138,7 +141,8 @@ class MaterialSerializer(serializers.ModelSerializer):
         model = Material
         fields = [
             'id', 'name', 'description', 'material_type', 'file', 'url',
-            'topic', 'topic_name', 'professor', 'professor_name',
+            'topic', 'topic_name', 'course_id', 'course_name', 'course_code',
+            'professor', 'professor_name',
             'is_shared', 'assigned_students', 'assigned_students_data',
             'created_at', 'updated_at'
         ]

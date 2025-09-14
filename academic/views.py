@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import GenericViewSet
 from django.db import models
 from django.utils import timezone
-from django.db.models import Q, Count, Avg, Sum
+from django.db.models import Q, Count, Avg, Sum, Max
 from .models import (
     Course, Topic, Section, Enrollment, Assessment, Grade, Material,
     MaterialViewingSession, MaterialInteraction, MaterialAnalytics
@@ -498,6 +498,7 @@ class MaterialViewSet(viewsets.ModelViewSet):
             )
 
 
+
 class MaterialViewingSessionViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet para ver sesiones de visualización de materiales"""
     serializer_class = MaterialViewingSessionSerializer
@@ -554,6 +555,222 @@ class MaterialAnalyticsViewSet(viewsets.ReadOnlyModelViewSet):
             ).select_related('material')
         else:
             return MaterialAnalytics.objects.none()
+    
+    @action(detail=False, methods=['get'], url_path='by-course/(?P<course_id>[^/.]+)')
+    def by_course(self, request, course_id=None):
+        """Obtener analytics de materiales por curso"""
+        if request.user.role != 'PROFESOR':
+            return Response({'error': 'Solo los profesores pueden acceder'}, status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            course = Course.objects.get(id=course_id, professor=request.user)
+        except Course.DoesNotExist:
+            return Response({'error': 'Curso no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Obtener materiales del curso
+        materials = Material.objects.filter(
+            topic__course=course,
+            professor=request.user
+        ).select_related('topic')
+        
+        # Obtener analytics para cada material
+        analytics_data = []
+        for material in materials:
+            analytics, created = MaterialAnalytics.objects.get_or_create(material=material)
+            analytics.update_analytics()  # Actualizar métricas
+            
+            analytics_data.append({
+                'material_id': material.id,
+                'material_name': material.name,
+                'material_type': material.material_type,
+                'topic_name': material.topic.name,
+                'total_views': analytics.total_views,
+                'unique_viewers': analytics.unique_viewers,
+                'total_duration': analytics.total_duration,
+                'average_duration': analytics.average_duration,
+                'completion_rate': analytics.completion_rate,
+                'last_updated': analytics.last_updated
+            })
+        
+        return Response(analytics_data)
+    
+    @action(detail=False, methods=['get'], url_path='material/(?P<material_id>[^/.]+)/detailed')
+    def material_detailed(self, request, material_id=None):
+        """Obtener analytics detallados de un material específico"""
+        if request.user.role != 'PROFESOR':
+            return Response({'error': 'Solo los profesores pueden acceder'}, status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            material = Material.objects.get(id=material_id, professor=request.user)
+        except Material.DoesNotExist:
+            return Response({'error': 'Material no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Obtener rango de tiempo
+        time_range = request.query_params.get('time_range', '30d')
+        days_back = {
+            '7d': 7,
+            '30d': 30,
+            '90d': 90,
+            'all': 365
+        }.get(time_range, 30)
+        
+        start_date = timezone.now() - timezone.timedelta(days=days_back)
+        
+        # Obtener analytics del material
+        analytics, created = MaterialAnalytics.objects.get_or_create(material=material)
+        analytics.update_analytics()
+        
+        # Obtener estadísticas diarias
+        daily_stats = self._get_daily_stats(material, start_date)
+        
+        # Obtener estadísticas semanales
+        weekly_stats = self._get_weekly_stats(material, start_date)
+        
+        # Obtener detalles por estudiante
+        student_details = self._get_student_details(material, start_date)
+        
+        response_data = {
+            'material_id': material.id,
+            'material_name': material.name,
+            'material_type': material.material_type,
+            'total_views': analytics.total_views,
+            'unique_viewers': analytics.unique_viewers,
+            'total_duration': analytics.total_duration,
+            'average_duration': analytics.average_duration,
+            'completion_rate': analytics.completion_rate,
+            'daily_stats': daily_stats,
+            'weekly_stats': weekly_stats,
+            'student_details': student_details
+        }
+        
+        return Response(response_data)
+    
+    def _get_daily_stats(self, material, start_date):
+        """Obtener estadísticas diarias del material"""
+        from django.db.models import Count, Sum
+        from django.db.models.functions import TruncDate
+        
+        daily_data = MaterialViewingSession.objects.filter(
+            material=material,
+            started_at__gte=start_date
+        ).annotate(
+            date=TruncDate('started_at')
+        ).values('date').annotate(
+            views=Count('id'),
+            duration=Sum('duration_seconds'),
+            unique_viewers=Count('student', distinct=True)
+        ).order_by('date')
+        
+        return list(daily_data)
+    
+    def _get_weekly_stats(self, material, start_date):
+        """Obtener estadísticas semanales del material"""
+        from django.db.models import Count, Sum
+        from django.db.models.functions import TruncWeek
+        
+        weekly_data = MaterialViewingSession.objects.filter(
+            material=material,
+            started_at__gte=start_date
+        ).annotate(
+            week=TruncWeek('started_at')
+        ).values('week').annotate(
+            views=Count('id'),
+            duration=Sum('duration_seconds'),
+            unique_viewers=Count('student', distinct=True)
+        ).order_by('week')
+        
+        # Formatear semanas
+        formatted_data = []
+        for i, week_data in enumerate(weekly_data):
+            formatted_data.append({
+                'week': f'Semana {i + 1}',
+                'views': week_data['views'],
+                'duration': week_data['duration'] or 0,
+                'unique_viewers': week_data['unique_viewers']
+            })
+        
+        return formatted_data
+    
+    def _get_student_details(self, material, start_date):
+        """Obtener detalles por estudiante que pertenecen al mismo salón/grado/sección del curso y tienen el curso en su portafolio"""
+        from django.db.models import Count, Sum, Max, Avg, Q
+        from accounts.models import CustomUser
+        from portfolios.models import PortfolioCourse
+        
+        # Obtener el curso del material
+        course = material.topic.course
+        
+        # Obtener estudiantes que tienen acceso al material basado en el tipo
+        if material.is_shared:
+            # Material de clase: obtener estudiantes de las secciones que tienen este curso asignado
+            # Y que además tienen el curso en su portafolio
+            accessible_students = CustomUser.objects.filter(
+                role='ALUMNO',
+                enrollment__section__course=course,  # Mismo curso
+                enrollment__is_active=True,
+                portfolios__courses__course=course  # Tiene el curso en su portafolio
+            ).distinct()
+        else:
+            # Material personalizado: obtener estudiantes asignados específicamente
+            # Y que además tienen el curso en su portafolio
+            accessible_students = material.assigned_students.filter(
+                role='ALUMNO',
+                portfolios__courses__course=course  # Tiene el curso en su portafolio
+            ).distinct()
+        
+        # Obtener datos de sesiones de visualización para estos estudiantes
+        viewing_sessions = MaterialViewingSession.objects.filter(
+            material=material,
+            student__in=accessible_students,
+            started_at__gte=start_date
+        ).values(
+            'student__id',
+            'student__first_name',
+            'student__last_name',
+            'student__username'
+        ).annotate(
+            total_duration=Sum('duration_seconds'),
+            sessions_count=Count('id'),
+            completion_rate=Avg('progress_percentage'),
+            last_viewed=Max('started_at')
+        )
+        
+        # Crear un diccionario con los datos de sesiones
+        sessions_data = {session['student__id']: session for session in viewing_sessions}
+        
+        formatted_data = []
+        for student in accessible_students:
+            session_data = sessions_data.get(student.id, {})
+            
+            # Obtener información de la sección del estudiante para mostrar en el análisis
+            student_enrollment = student.enrollment_set.filter(
+                section__course=course,
+                is_active=True
+            ).first()
+            
+            # Verificar que el estudiante tiene el curso en su portafolio
+            has_course_in_portfolio = PortfolioCourse.objects.filter(
+                portfolio__student=student,
+                course=course
+            ).exists()
+            
+            # Solo incluir si tiene el curso en su portafolio
+            if has_course_in_portfolio:
+                formatted_data.append({
+                    'student_id': student.id,
+                    'student_name': f"{student.first_name or ''} {student.last_name or ''}".strip() or student.username,
+                    'section_name': student_enrollment.section.name if student_enrollment else 'Sin sección',
+                    'grade_level': student_enrollment.section.grade_level.name if student_enrollment and student_enrollment.section.grade_level else 'Sin grado',
+                    'total_duration': session_data.get('total_duration', 0) or 0,
+                    'sessions_count': session_data.get('sessions_count', 0) or 0,
+                    'completion_rate': session_data.get('completion_rate', 0) or 0,
+                    'last_viewed': session_data.get('last_viewed').isoformat() if session_data.get('last_viewed') else None
+                })
+        
+        # Ordenar por duración total (estudiantes con más interacción primero)
+        formatted_data.sort(key=lambda x: x['total_duration'], reverse=True)
+        
+        return formatted_data
 
 
 class MaterialTrackingViewSet(GenericViewSet):

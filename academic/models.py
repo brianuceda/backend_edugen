@@ -126,6 +126,7 @@ class Material(models.Model):
         ('AUDIO', 'Audio'),
         ('IMAGE', 'Imagen'),
         ('LINK', 'Enlace'),
+        ('SCORM', 'SCORM'),
         ('OTHER', 'Otro'),
     ]
     
