@@ -980,3 +980,46 @@ class MaterialTrackingViewSet(GenericViewSet):
             'popular_materials': MaterialAnalyticsSerializer(popular_materials, many=True).data,
             'active_students': active_students
         })
+    
+    @action(detail=False, methods=['get'], url_path='interaction-stats/(?P<material_id>[^/.]+)')
+    def interaction_stats(self, request, material_id=None):
+        """Obtener estadísticas de interacciones por tipo para un material"""
+        if request.user.role != 'PROFESOR':
+            return Response(
+                {'error': 'Solo los profesores pueden acceder a este endpoint'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        try:
+            material = Material.objects.get(id=material_id, professor=request.user)
+        except Material.DoesNotExist:
+            return Response({'error': 'Material no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Obtener estadísticas de interacciones por tipo
+        interaction_stats = MaterialInteraction.objects.filter(
+            session__material=material
+        ).values('interaction_type').annotate(
+            count=Count('id')
+        ).order_by('-count')
+        
+        # Obtener distribución temporal de interacciones (últimos 7 días)
+        from datetime import datetime, timedelta
+        end_date = timezone.now()
+        start_date = end_date - timedelta(days=7)
+        
+        daily_interactions = MaterialInteraction.objects.filter(
+            session__material=material,
+            timestamp__gte=start_date,
+            timestamp__lte=end_date
+        ).extra(
+            select={'day': 'date(timestamp)'}
+        ).values('day', 'interaction_type').annotate(
+            count=Count('id')
+        ).order_by('day')
+        
+        return Response({
+            'material_id': material.id,
+            'material_name': material.name,
+            'interaction_types': list(interaction_stats),
+            'daily_interactions': list(daily_interactions)
+        })
