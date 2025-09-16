@@ -41,7 +41,9 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     # Apps
+    'api',
     'accounts',
     'academic',
     'portfolios',
@@ -50,6 +52,7 @@ INSTALLED_APPS = [
     'ai_content_generator',
     'scorm_packager',
     'dashboard',
+    'director',
 ]
 
 MIDDLEWARE = [
@@ -147,5 +150,66 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Custom User Model
+AUTH_USER_MODEL = 'accounts.CustomUser'
+
+# Security settings
+if DEBUG:
+    X_FRAME_OPTIONS = 'ALLOWALL'  # Allow all iframes in development
+    SECURE_CROSS_ORIGIN_OPENER_POLICY = None  # Disable COOP for iframe compatibility
+else:
+    X_FRAME_OPTIONS = 'SAMEORIGIN'  # Allow iframes from same origin in production
+
 # CORS settings
 CORS_ALLOW_ALL_ORIGINS = True  # para dev; en prod usa CORS_ALLOWED_ORIGINS
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+# DeepSeek API Configuration
+DEEPSEEK_API_KEY = 'sk-faabf6271e5b4b8ba86588fea024d0c6'
+DEEPSEEK_BASE_URL = 'https://api.deepseek.com/v1'
+
+# JWT Configuration
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),  # Token de acceso dura 30 minutos
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),     # Token de refresh dura 7 días
+    'ROTATE_REFRESH_TOKENS': True,                   # Rotar refresh tokens
+    'BLACKLIST_AFTER_ROTATION': True,                # Blacklistear tokens antiguos
+    'UPDATE_LAST_LOGIN': True,                       # Actualizar último login
+    
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFYING_KEY': None,
+    'AUDIENCE': None,
+    'ISSUER': None,
+    'JWK_URL': None,
+    'LEEWAY': 0,
+    
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'USER_AUTHENTICATION_RULE': 'rest_framework_simplejwt.authentication.default_user_authentication_rule',
+    
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+    'TOKEN_USER_CLASS': 'rest_framework_simplejwt.models.TokenUser',
+    
+    'JTI_CLAIM': 'jti',
+    
+    'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
+    'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5),
+    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
+}
