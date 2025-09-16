@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-8ulo*l^@$ht9480zls$ia3lr6yip*66o5k4!e%*#+yskdke+@2
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    'edugen-backend-yqi8si-eb5351-45-41-205-100.traefik.me',
+    'edugen.brianuceda.xyz',
      'frontend-edugen.vercel.app',
     'localhost',
     '127.0.0.1',
