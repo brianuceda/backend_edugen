@@ -25,7 +25,14 @@ SECRET_KEY = 'django-insecure-8ulo*l^@$ht9480zls$ia3lr6yip*66o5k4!e%*#+yskdke+@2
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    'edugen-backend-yqi8si-eb5351-45-41-205-100.traefik.me',
+     'frontend-edugen.vercel.app',
+    'localhost',
+    '127.0.0.1',
+    '0.0.0.0',
+    '*',  # Allow all hosts for development
+]
 
 
 # Application definition
@@ -173,6 +180,13 @@ CORS_ALLOWED_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
+]
+
+# CSRF settings for production
+CSRF_TRUSTED_ORIGINS = [
+    'https://edugen-backend-yqi8si-eb5351-45-41-205-100.traefik.me',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
 ]
 
 # DeepSeek API Configuration
