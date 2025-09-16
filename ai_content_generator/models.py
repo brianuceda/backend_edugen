@@ -1,51 +1,75 @@
 from django.db import models
-from accounts.models import CustomUser
+from django.conf import settings
+import uuid
 
+def generate_session_id():
+    return str(uuid.uuid4())
 
-class SourceDocument(models.Model):
-    title = models.CharField(max_length=200)
-    content = models.TextField()
-    file = models.FileField(upload_to='sources/', null=True, blank=True)
-    uploaded_by = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+class Conversation(models.Model):
+    """Modelo para conversaciones con DeepSeek"""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='ai_conversations')
+    session_id = models.CharField(max_length=100, unique=True, default=generate_session_id)
+    title = models.CharField(max_length=200, blank=True)
+    requirements = models.JSONField(default=dict, blank=True)
+    is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return self.title
-
-
-class Chunk(models.Model):
-    document = models.ForeignKey(SourceDocument, on_delete=models.CASCADE, related_name='chunks')
-    content = models.TextField()
-    embedding = models.JSONField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"{self.document.title} - Chunk {self.id}"
-
-
-class GenerationRequest(models.Model):
-    STATUS_CHOICES = [
-        ('PENDING', 'Pending'),
-        ('PROCESSING', 'Processing'),
-        ('COMPLETED', 'Completed'),
-        ('FAILED', 'Failed'),
-    ]
+    updated_at = models.DateTimeField(auto_now=True)
     
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
-    prompt = models.TextField()
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
-    created_at = models.DateTimeField(auto_now_add=True)
-    completed_at = models.DateTimeField(null=True, blank=True)
-
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Conversación'
+        verbose_name_plural = 'Conversaciones'
+    
     def __str__(self):
-        return f"{self.user.username} - {self.prompt[:50]}..."
+        return f"{self.user.first_name} - {self.title or 'Sin título'}"
 
+class ConversationMessage(models.Model):
+    """Modelo para mensajes de conversación"""
+    conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='messages')
+    role = models.CharField(max_length=20, choices=[('user', 'Usuario'), ('assistant', 'Asistente')])
+    content = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['timestamp']
+        verbose_name = 'Mensaje'
+        verbose_name_plural = 'Mensajes'
+    
+    def __str__(self):
+        return f"{self.role}: {self.content[:50]}..."
+
+class ContentTemplate(models.Model):
+    """Modelo para plantillas de contenido"""
+    name = models.CharField(max_length=200)
+    description = models.TextField()
+    prompt_template = models.TextField()
+    grapesjs_config = models.JSONField(default=dict)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name = 'Plantilla de Contenido'
+        verbose_name_plural = 'Plantillas de Contenido'
+    
+    def __str__(self):
+        return self.name
 
 class GeneratedContent(models.Model):
-    request = models.OneToOneField(GenerationRequest, on_delete=models.CASCADE, related_name='content')
+    """Modelo para contenido generado por IA"""
+    conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='generated_content')
     title = models.CharField(max_length=200)
-    content = models.TextField()
+    html_content = models.TextField()
+    css_content = models.TextField()
+    js_content = models.TextField()
+    grapesjs_components = models.JSONField(default=dict)
+    is_public = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
-
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Contenido Generado'
+        verbose_name_plural = 'Contenidos Generados'
+    
     def __str__(self):
-        return self.title
+        return f"{self.title} - {self.conversation.user.first_name}"

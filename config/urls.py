@@ -21,6 +21,7 @@ from django.conf.urls.static import static
 from django.urls import path, include
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path("api/", include("api.urls")),
     path("api/v1/accounts/",   include("accounts.urls")),
     path("api/v1/academic/",   include("academic.urls")),
     path("api/v1/portfolio/",  include("portfolios.urls")),
@@ -29,4 +30,9 @@ urlpatterns = [
     path("api/v1/ai/",         include("ai_content_generator.urls")),
     path("api/v1/scorm/",      include("scorm_packager.urls")),
     path("api/v1/dashboard/",  include("dashboard.urls")),
+    path("api/v1/director/",   include("director.urls")),
 ]
+
+# Servir archivos de media en desarrollo
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
