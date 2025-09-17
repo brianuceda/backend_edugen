@@ -91,14 +91,17 @@ class GenerateContentSerializer(serializers.Serializer):
         if not value or not isinstance(value, dict):
             raise serializers.ValidationError("Los requisitos deben ser un objeto válido")
         
-        # Validar campos mínimos requeridos
+        # Verificar que tenga los campos mínimos necesarios para generar contenido
         required_fields = ['subject', 'content_type']
-        for field in required_fields:
-            if not value.get(field):
-                raise serializers.ValidationError(f"El campo '{field}' es requerido en los requisitos")
+        missing_fields = [field for field in required_fields if not value.get(field)]
         
-        # Si existe is_complete, validar que sea True
-        if 'is_complete' in value and not value.get('is_complete', False):
-            raise serializers.ValidationError("Los requisitos no están completos")
+        if missing_fields:
+            raise serializers.ValidationError(f"Los requisitos deben contener: {', '.join(missing_fields)}")
+        
+        # Si is_complete es False pero tenemos campos básicos, permitir la generación
+        # pero mostrar una advertencia en los logs
+        if value.get('is_complete', False) is False:
+            print(f"⚠️ [VALIDATION] Requisitos marcados como incompletos pero tienen campos básicos suficientes")
+            print(f"⚠️ [VALIDATION] Campos disponibles: {list(value.keys())}")
         
         return value

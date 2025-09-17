@@ -47,11 +47,15 @@ class AIContentGeneratorViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='send-message')
     def send_message(self, request, pk=None):
         """Enviar mensaje al chat de DeepSeek"""
+        print(f"\n💬 [SEND MESSAGE] Nuevo mensaje para conversación {pk}")
         conversation = self.get_object()
+        print(f"📋 [SEND MESSAGE] Conversación: {conversation.title}")
+        
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
         message_content = serializer.validated_data['content']
+        print(f"👤 [SEND MESSAGE] Usuario dice: {message_content[:100]}...")
         
         # Guardar mensaje del usuario
         user_message = ConversationMessage.objects.create(
@@ -66,12 +70,16 @@ class AIContentGeneratorViewSet(viewsets.ModelViewSet):
             {'role': msg.role, 'content': msg.content}
             for msg in messages
         ]
+        print(f"💬 [SEND MESSAGE] Historial: {len(message_history)} mensajes")
         
         # Enviar a DeepSeek
+        print(f"🤖 [SEND MESSAGE] Llamando a DeepSeek API...")
         deepseek_service = DeepSeekChatService()
+        
         try:
             response = deepseek_service.chat_with_user(message_history)
             assistant_content = response['choices'][0]['message']['content']
+            print(f"🤖 [SEND MESSAGE] Asistente responde: {assistant_content[:100]}...")
             
             # Guardar respuesta del asistente
             assistant_message = ConversationMessage.objects.create(
@@ -79,6 +87,7 @@ class AIContentGeneratorViewSet(viewsets.ModelViewSet):
                 role='assistant',
                 content=assistant_content
             )
+            print(f"💾 [SEND MESSAGE] Mensajes guardados en la conversación")
             
             return Response({
                 'user_message': ConversationMessageSerializer(user_message).data,
@@ -86,6 +95,7 @@ class AIContentGeneratorViewSet(viewsets.ModelViewSet):
             })
             
         except Exception as e:
+            print(f"❌ [SEND MESSAGE] Error: {str(e)}")
             return Response(
                 {'error': f'Error en el chat: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -94,7 +104,9 @@ class AIContentGeneratorViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='extract-requirements')
     def extract_requirements(self, request, pk=None):
         """Extraer requisitos de la conversación"""
+        print(f"\n🔍 [EXTRACT REQUIREMENTS] Iniciando extracción de requisitos para conversación {pk}")
         conversation = self.get_object()
+        print(f"📋 [EXTRACT REQUIREMENTS] Conversación: {conversation.title}")
         
         # Obtener historial de conversación
         messages = conversation.messages.all().order_by('timestamp')
@@ -102,28 +114,35 @@ class AIContentGeneratorViewSet(viewsets.ModelViewSet):
             {'role': msg.role, 'content': msg.content}
             for msg in messages
         ]
+        print(f"💬 [EXTRACT REQUIREMENTS] Mensajes encontrados: {len(message_history)}")
         
         # Extraer requisitos usando DeepSeek
+        print(f"🤖 [EXTRACT REQUIREMENTS] Llamando a DeepSeek API...")
         deepseek_service = DeepSeekChatService()
+        
         try:
             requirements = deepseek_service.extract_requirements(message_history)
             
             if requirements:
+                print(f"✅ [EXTRACT REQUIREMENTS] Requisitos extraídos: {requirements}")
                 # Guardar requisitos en la conversación
                 conversation.requirements = requirements
                 conversation.save()
+                print(f"💾 [EXTRACT REQUIREMENTS] Requisitos guardados en la conversación")
                 
                 return Response({
-                    'requirements': requirements,
+                    'requirements': requirements,  # Enviar los requisitos reales
                     'message': 'Requisitos extraídos exitosamente'
                 })
             else:
+                print(f"⚠️ [EXTRACT REQUIREMENTS] No se pudieron extraer requisitos - contenido no listo")
                 return Response(
-                    {'error': 'No se pudieron extraer los requisitos'},
+                    {'error': 'El contenido aún no está listo para generar. Continúa la conversación con el asistente.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
                 
         except Exception as e:
+            print(f"❌ [EXTRACT REQUIREMENTS] Error: {str(e)}")
             return Response(
                 {'error': f'Error al extraer requisitos: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -132,32 +151,52 @@ class AIContentGeneratorViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='generate-content')
     def generate_content(self, request, pk=None):
         """Generar contenido basado en los requisitos"""
+        print(f"\n🚀 [GENERATE CONTENT] Iniciando generación de contenido para conversación {pk}")
+        
         try:
             conversation = self.get_object()
+            print(f"📋 [GENERATE CONTENT] Conversación encontrada: {conversation.title}")
+            
+            print(f"📦 [GENERATE CONTENT] Request data: {request.data}")
+            print(f"📦 [GENERATE CONTENT] Request data type: {type(request.data)}")
             
             serializer = self.get_serializer(data=request.data)
             if not serializer.is_valid():
+                print(f"❌ [GENERATE CONTENT] Error de validación: {serializer.errors}")
+                print(f"❌ [GENERATE CONTENT] Data recibida: {request.data}")
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             
             requirements = serializer.validated_data['requirements']
             title = serializer.validated_data['title']
+            print(f"📋 [GENERATE CONTENT] Requisitos validados: {requirements}")
+            print(f"📝 [GENERATE CONTENT] Título: {title}")
+            
         except Exception as e:
+            print(f"❌ [GENERATE CONTENT] Error en setup: {str(e)}")
             return Response(
                 {'error': f'Error en setup: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
         
         # Generar contenido usando DeepSeek
+        print(f"🤖 [GENERATE CONTENT] Llamando a DeepSeek API...")
         deepseek_service = DeepSeekChatService()
+        
         try:
             # Generar contenido
+            print(f"⏳ [GENERATE CONTENT] Generando contenido...")
             generated_content = deepseek_service.generate_content(requirements)
+            print(f"✅ [GENERATE CONTENT] Contenido generado exitosamente")
             
             # Validar que el contenido generado tenga las claves esperadas
             if not all(key in generated_content for key in ['html', 'css', 'js']):
+                print(f"❌ [GENERATE CONTENT] Contenido incompleto. Claves: {list(generated_content.keys())}")
                 raise Exception(f"Generated content missing required keys. Got: {list(generated_content.keys())}")
             
+            print(f"📊 [GENERATE CONTENT] Tamaños - HTML: {len(generated_content['html'])}, CSS: {len(generated_content['css'])}, JS: {len(generated_content['js'])}")
+            
             # Guardar contenido generado
+            print(f"💾 [GENERATE CONTENT] Guardando en base de datos...")
             content = GeneratedContent.objects.create(
                 conversation=conversation,
                 title=title,
@@ -166,6 +205,7 @@ class AIContentGeneratorViewSet(viewsets.ModelViewSet):
                 js_content=generated_content['js'],
                 grapesjs_components={}
             )
+            print(f"🎉 [GENERATE CONTENT] Contenido guardado con ID: {content.id}")
             
             return Response({
                 'content': GeneratedContentSerializer(content).data,
@@ -173,6 +213,7 @@ class AIContentGeneratorViewSet(viewsets.ModelViewSet):
             })
             
         except Exception as e:
+            print(f"❌ [GENERATE CONTENT] Error generando contenido: {str(e)}")
             return Response(
                 {'error': f'Error generando contenido: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
