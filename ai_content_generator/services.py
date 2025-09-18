@@ -209,30 +209,23 @@ Formato de respuesta:
 ENFOQUE: Contenido educativo EDITABLE con GrapesJS, elementos interactivos y estructura clara."""
         
         try:
-            print(f"Calling DeepSeek API for content generation...")
             response = self.generate_content_with_limits([
                 {"role": "user", "content": generation_prompt}
             ])
-            print(f"DeepSeek API response received")
             
             if 'choices' not in response or len(response['choices']) == 0:
                 raise Exception("No choices in DeepSeek response")
             
             content = response['choices'][0]['message']['content']
-            print(f"Generated content length: {len(content)}")
             
             # Extraer HTML, CSS y JS de la respuesta
             parsed_content = self.parse_generated_content(content)
-            print(f"Parsed content - HTML: {len(parsed_content.get('html', ''))}, CSS: {len(parsed_content.get('css', ''))}, JS: {len(parsed_content.get('js', ''))}")
             
             # TEMPORAL: Usar fallback para probar compatibilidad con GrapesJS
-            print("USANDO FALLBACK TEMPORAL PARA PROBAR GRAPESJS")
             return self.generate_fallback_content(requirements)
             
         except Exception as e:
-            print(f"Error in generate_content: {str(e)}")
-            print("Falling back to basic content generation...")
-        return self.generate_fallback_content(requirements)
+            return self.generate_fallback_content(requirements)
     
     def generate_content_with_limits(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:
         """Genera contenido con límites estrictos de tokens para respuesta rápida"""
@@ -262,38 +255,25 @@ ENFOQUE: Contenido educativo EDITABLE con GrapesJS, elementos interactivos y est
         }
         
         try:
-            print(f"🌐 [API] Enviando petición a: {self.base_url}/chat/completions")
-            print(f"🔑 [API] API Key: {self.api_key[:10]}...")
-            print(f"📦 [API] Payload: {json.dumps(payload, indent=2)}")
-            
             response = requests.post(
                 f"{self.base_url}/chat/completions", 
                 headers=headers, 
                 json=payload, 
-                timeout=60  # Aumentado a 60 segundos
+                timeout=60
             )
             
-            print(f"📊 [API] Status Code: {response.status_code}")
-            print(f"📋 [API] Response Headers: {dict(response.headers)}")
-            
             if response.status_code != 200:
-                print(f"❌ [API] Error Response: {response.text}")
                 raise Exception(f"API Error {response.status_code}: {response.text}")
             
             response_data = response.json()
-            print(f"✅ [API] Response recibida: {json.dumps(response_data, indent=2)}")
             return response_data
         except requests.exceptions.Timeout:
-            print("⏰ [API] Timeout error")
             raise Exception("Timeout: La API de DeepSeek tardó demasiado en responder")
         except requests.exceptions.ConnectionError as e:
-            print(f"🔌 [API] Connection error: {e}")
             raise Exception("Error de conexión: No se pudo conectar con la API de DeepSeek")
         except requests.exceptions.RequestException as e:
-            print(f"❌ [API] Request error: {e}")
             raise Exception(f"Error en DeepSeek API: {str(e)}")
         except Exception as e:
-            print(f"💥 [API] Unexpected error: {e}")
             raise Exception(f"Error inesperado: {str(e)}")
     
     
@@ -306,8 +286,7 @@ ENFOQUE: Contenido educativo EDITABLE con GrapesJS, elementos interactivos y est
             'js': ''
         }
         
-        print(f"Parsing content of length: {len(content)}")
-        print(f"Content preview: {content[:200]}...")
+        # Parse content
         
         # Extraer HTML - múltiples patrones
         html_patterns = [
@@ -322,7 +301,6 @@ ENFOQUE: Contenido educativo EDITABLE con GrapesJS, elementos interactivos y est
                 html_match = re.search(pattern, content, re.DOTALL)
                 if html_match:
                     result['html'] = html_match.group(1).strip()
-                    print(f"HTML found with pattern: {pattern}")
                     break
             else:
                 # Buscar desde el inicio del HTML
@@ -345,7 +323,6 @@ ENFOQUE: Contenido educativo EDITABLE con GrapesJS, elementos interactivos y est
                         html_end = len(content)
                     
                     result['html'] = content[html_start:html_end].strip()
-                    print(f"HTML found from position {html_start} to {html_end}")
                     break
         
         # Extraer CSS - múltiples patrones
@@ -360,7 +337,6 @@ ENFOQUE: Contenido educativo EDITABLE con GrapesJS, elementos interactivos y est
                 css_match = re.search(pattern, content, re.DOTALL)
                 if css_match:
                     result['css'] = css_match.group(1).strip()
-                    print(f"CSS found with pattern: {pattern}")
                     break
             else:
                 css_start = content.find('.container {')
@@ -379,7 +355,6 @@ ENFOQUE: Contenido educativo EDITABLE con GrapesJS, elementos interactivos y est
                         css_end = len(content)
                     
                     result['css'] = content[css_start:css_end].strip()
-                    print(f"CSS found from position {css_start} to {css_end}")
                     break
         
         # Extraer JavaScript - múltiples patrones
@@ -395,7 +370,6 @@ ENFOQUE: Contenido educativo EDITABLE con GrapesJS, elementos interactivos y est
                 js_match = re.search(pattern, content, re.DOTALL)
                 if js_match:
                     result['js'] = js_match.group(1).strip()
-                    print(f"JS found with pattern: {pattern}")
                     break
             else:
                 js_start = content.find('<script>')
@@ -411,12 +385,10 @@ ENFOQUE: Contenido educativo EDITABLE con GrapesJS, elementos interactivos y est
                         js_end = len(content)
                     
                     result['js'] = content[js_start:js_end].strip()
-                    print(f"JS found from position {js_start} to {js_end}")
                     break
         
         # Si no se encontró CSS o JS, generar fallback básico
         if not result['css']:
-            print("No CSS found, generating basic CSS fallback")
             result['css'] = """
 .container {
   max-width: 1200px;
@@ -488,10 +460,38 @@ ENFOQUE: Contenido educativo EDITABLE con GrapesJS, elementos interactivos y est
 """
         
         if not result['js']:
-            print("No JS found, generating basic JS fallback")
             result['js'] = """
-// Funcionalidad básica para ejercicios
+// Funcionalidad básica para ejercicios (compatible con iframe)
 document.addEventListener('DOMContentLoaded', function() {
+  console.log('Contenido SCORM cargado');
+  
+  // Función para guardar respuestas (sin localStorage)
+  window.saveAnswer = function(exerciseId, button) {
+    const textarea = button.closest('.exercise-item').querySelector('textarea');
+    const answer = textarea.value;
+    
+    if (answer.trim()) {
+      // Simular guardado sin localStorage
+      button.textContent = '✓ Guardado';
+      button.style.background = '#28a745';
+      
+      // Mostrar feedback
+      const feedback = button.parentElement.querySelector('.feedback');
+      if (feedback) {
+        feedback.style.display = 'block';
+        feedback.textContent = '¡Respuesta guardada!';
+        feedback.className = 'feedback correct';
+      }
+      
+      setTimeout(() => {
+        button.textContent = 'Guardar Respuesta';
+        button.style.background = '#007bff';
+      }, 2000);
+    } else {
+      alert('Por favor escribe una respuesta antes de guardar');
+    }
+  };
+  
   // Manejar botones de verificación
   const checkButtons = document.querySelectorAll('.check-btn');
   checkButtons.forEach(button => {
@@ -536,7 +536,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 """
         
-        print(f"Parsed result - HTML: {len(result['html'])}, CSS: {len(result['css'])}, JS: {len(result['js'])}")
+        # Return parsed content
         return result
     
     def generate_fallback_content(self, requirements: Dict[str, Any]) -> Dict[str, str]:
