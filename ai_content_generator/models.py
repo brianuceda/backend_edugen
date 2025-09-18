@@ -56,7 +56,7 @@ class ContentTemplate(models.Model):
 
 class GeneratedContent(models.Model):
     """Modelo para contenido generado por IA"""
-    conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='generated_content')
+    conversation = models.ForeignKey(Conversation, on_delete=models.SET_NULL, null=True, blank=True, related_name='generated_content')
     title = models.CharField(max_length=200)
     html_content = models.TextField()
     css_content = models.TextField()

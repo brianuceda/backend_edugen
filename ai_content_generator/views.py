@@ -48,6 +48,7 @@ class AIContentGeneratorViewSet(viewsets.ModelViewSet):
     def send_message(self, request, pk=None):
         """Enviar mensaje al chat de DeepSeek"""
         conversation = self.get_object()
+        
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
@@ -69,6 +70,7 @@ class AIContentGeneratorViewSet(viewsets.ModelViewSet):
         
         # Enviar a DeepSeek
         deepseek_service = DeepSeekChatService()
+        
         try:
             response = deepseek_service.chat_with_user(message_history)
             assistant_content = response['choices'][0]['message']['content']
@@ -86,6 +88,7 @@ class AIContentGeneratorViewSet(viewsets.ModelViewSet):
             })
             
         except Exception as e:
+            # Error handling
             return Response(
                 {'error': f'Error en el chat: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -105,6 +108,7 @@ class AIContentGeneratorViewSet(viewsets.ModelViewSet):
         
         # Extraer requisitos usando DeepSeek
         deepseek_service = DeepSeekChatService()
+        
         try:
             requirements = deepseek_service.extract_requirements(message_history)
             
@@ -119,7 +123,7 @@ class AIContentGeneratorViewSet(viewsets.ModelViewSet):
                 })
             else:
                 return Response(
-                    {'error': 'No se pudieron extraer los requisitos'},
+                    {'error': 'El contenido aún no está listo para generar. Continúa la conversación con el asistente.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
                 
@@ -141,6 +145,7 @@ class AIContentGeneratorViewSet(viewsets.ModelViewSet):
             
             requirements = serializer.validated_data['requirements']
             title = serializer.validated_data['title']
+            
         except Exception as e:
             return Response(
                 {'error': f'Error en setup: {str(e)}'},
@@ -149,6 +154,7 @@ class AIContentGeneratorViewSet(viewsets.ModelViewSet):
         
         # Generar contenido usando DeepSeek
         deepseek_service = DeepSeekChatService()
+        
         try:
             # Generar contenido
             generated_content = deepseek_service.generate_content(requirements)
