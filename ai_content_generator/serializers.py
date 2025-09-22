@@ -37,7 +37,7 @@ class ContentTemplateSerializer(serializers.ModelSerializer):
         model = ContentTemplate
         fields = [
             'id', 'name', 'description', 'prompt_template',
-            'grapesjs_config', 'is_active', 'created_at'
+            'is_active', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
 
@@ -50,16 +50,17 @@ class GeneratedContentSerializer(serializers.ModelSerializer):
         model = GeneratedContent
         fields = [
             'id', 'conversation', 'conversation_title', 'user_name',
-            'title', 'html_content', 'css_content', 'js_content',
-            'grapesjs_components', 'is_public', 'created_at', 'updated_at'
+            'title', 'description', 'content_type',
+            'gamma_blocks', 'gamma_document',
+            'is_public', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
     
     def get_conversation_title(self, obj):
-        return obj.conversation.title or f"Conversación {obj.conversation.id}"
+        return obj.conversation.title or f"Conversación {obj.conversation.id}" if obj.conversation else "Sin conversación"
     
     def get_user_name(self, obj):
-        return f"{obj.conversation.user.first_name} {obj.conversation.user.last_name}"
+        return obj.user_name
 
 class CreateConversationSerializer(serializers.Serializer):
     """Serializer para crear nueva conversación"""
