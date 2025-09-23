@@ -43,7 +43,6 @@ class ContentTemplate(models.Model):
     name = models.CharField(max_length=200)
     description = models.TextField()
     prompt_template = models.TextField()
-    grapesjs_config = models.JSONField(default=dict)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     
@@ -58,10 +57,16 @@ class GeneratedContent(models.Model):
     """Modelo para contenido generado por IA"""
     conversation = models.ForeignKey(Conversation, on_delete=models.SET_NULL, null=True, blank=True, related_name='generated_content')
     title = models.CharField(max_length=200)
-    html_content = models.TextField()
-    css_content = models.TextField()
-    js_content = models.TextField()
-    grapesjs_components = models.JSONField(default=dict)
+    description = models.TextField(blank=True)
+    content_type = models.CharField(max_length=50, default='gamma', choices=[
+        ('gamma', 'Gamma Blocks')
+    ])
+    
+    # Contenido Gamma
+    gamma_blocks = models.JSONField(default=list, blank=True)
+    gamma_document = models.JSONField(default=dict, blank=True)
+    
+    # Metadatos
     is_public = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -72,4 +77,8 @@ class GeneratedContent(models.Model):
         verbose_name_plural = 'Contenidos Generados'
     
     def __str__(self):
-        return f"{self.title} - {self.conversation.user.first_name}"
+        return f"{self.title} - {self.conversation.user.first_name if self.conversation else 'Sin usuario'}"
+    
+    @property
+    def user_name(self):
+        return self.conversation.user.first_name if self.conversation else 'Usuario desconocido'

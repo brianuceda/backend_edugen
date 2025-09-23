@@ -135,6 +135,7 @@ class Material(models.Model):
     material_type = models.CharField(max_length=20, choices=MATERIAL_TYPES, default='DOCUMENT')
     file = models.FileField(upload_to='materials/', null=True, blank=True)
     url = models.URLField(blank=True, null=True)
+    content_data = models.JSONField(null=True, blank=True, help_text="Contenido generado por IA almacenado como JSON")
     topic = models.ForeignKey(Topic, on_delete=models.CASCADE, related_name='materials')
     professor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -162,11 +163,15 @@ class Material(models.Model):
         return f"{self.name} - {self.topic.name}"
 
     def clean(self):
-        """Validar que el material tenga archivo o URL según el tipo"""
+        """Validar que el material tenga archivo, URL o content_data según el tipo"""
         from django.core.exceptions import ValidationError
         
         if self.material_type == 'LINK' and not self.url:
             raise ValidationError('Los materiales de tipo enlace deben tener una URL')
+        
+        # Si tiene content_data (contenido generado), no necesita archivo ni URL
+        if self.content_data:
+            return
         
         if self.material_type != 'LINK' and not self.file:
             raise ValidationError('Los materiales que no son enlaces deben tener un archivo')

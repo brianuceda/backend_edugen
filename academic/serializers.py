@@ -140,7 +140,7 @@ class MaterialSerializer(serializers.ModelSerializer):
     class Meta:
         model = Material
         fields = [
-            'id', 'name', 'description', 'material_type', 'file', 'url',
+            'id', 'name', 'description', 'material_type', 'file', 'url', 'content_data',
             'topic', 'topic_name', 'course_id', 'course_name', 'course_code',
             'professor', 'professor_name',
             'is_shared', 'assigned_students', 'assigned_students_data',
@@ -223,10 +223,15 @@ class MaterialSerializer(serializers.ModelSerializer):
         return material
     
     def validate(self, data):
-        """Validar que el material tenga archivo o URL según el tipo"""
+        """Validar que el material tenga archivo, URL o content_data según el tipo"""
         material_type = data.get('material_type')
         file = data.get('file')
         url = data.get('url')
+        content_data = data.get('content_data')
+        
+        # Si tiene content_data (contenido generado), no necesita archivo ni URL
+        if content_data:
+            return data
         
         # Validaciones básicas
         if material_type == 'LINK' and not url:

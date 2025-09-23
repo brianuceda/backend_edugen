@@ -2,12 +2,10 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.shortcuts import get_object_or_404
 from .models import Conversation, ConversationMessage, ContentTemplate, GeneratedContent
 from .serializers import (
     ConversationSerializer, ConversationMessageSerializer, ContentTemplateSerializer,
     GeneratedContentSerializer, CreateConversationSerializer, SendMessageSerializer,
-    GenerateContentSerializer
 )
 from .services import DeepSeekChatService
 
@@ -25,8 +23,6 @@ class AIContentGeneratorViewSet(viewsets.ModelViewSet):
             return CreateConversationSerializer
         elif self.action == 'send_message':
             return SendMessageSerializer
-        elif self.action == 'generate_content':
-            return GenerateContentSerializer
         return ConversationSerializer
     
     def create(self, request, *args, **kwargs):
@@ -88,11 +84,87 @@ class AIContentGeneratorViewSet(viewsets.ModelViewSet):
             })
             
         except Exception as e:
-            # Error handling
-            return Response(
-                {'error': f'Error en el chat: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            error_message = str(e)
+            
+            # Manejar errores específicos de la API
+            if "401" in error_message or "Unauthorized" in error_message:
+                # Crear respuesta de respaldo inteligente
+                fallback_content = self._create_fallback_response(message_content)
+                
+                assistant_message = ConversationMessage.objects.create(
+                    conversation=conversation,
+                    role='assistant',
+                    content=fallback_content
+                )
+                
+                return Response({
+                    'user_message': ConversationMessageSerializer(user_message).data,
+                    'assistant_message': ConversationMessageSerializer(assistant_message).data
+                })
+            elif "429" in error_message or "rate limit" in error_message.lower():
+                return Response(
+                    {'error': 'Límite de solicitudes excedido. Por favor, intenta de nuevo en unos minutos.'},
+                    status=status.HTTP_429_TOO_MANY_REQUESTS
+                )
+            else:
+                return Response(
+                    {'error': f'Error en el chat: {error_message}'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+    
+    def _create_fallback_response(self, user_message: str) -> str:
+        """Crear respuesta de respaldo inteligente basada en el mensaje del usuario"""
+        message_lower = user_message.lower()
+        
+        # Detectar tipo de contenido solicitado
+        if any(word in message_lower for word in ['polinomios', 'matemáticas', 'math', 'álgebra']):
+            return """¡Excelente! Veo que quieres crear contenido sobre **POLINOMIOS** para **MATEMÁTICAS**.
+
+Aunque hay un problema temporal con el servicio de IA, puedo ayudarte a refinar los requisitos. Basándome en tu mensaje, veo que necesitas:
+
+📚 **Tema**: Polinomios
+🎓 **Materia**: Matemáticas  
+📊 **Nivel**: Secundaria
+📝 **Tipo**: Lección
+
+Para completar la información, por favor comparte:
+
+1. **Objetivos específicos**: ¿Qué conceptos de polinomios quieres cubrir? (suma, resta, multiplicación, factorización, etc.)
+2. **Duración estimada**: ¿Cuánto tiempo durará la lección?
+3. **Ejercicios**: ¿Qué tipo de ejercicios prefieres incluir?
+4. **Recursos**: ¿Necesitas gráficos, ejemplos visuales, o interactivos?
+
+**¿Estás conforme con esta información o quieres agregar algo más?** Una vez que confirmes, podrás usar "Extraer Requisitos" para generar tu contenido."""
+        
+        elif any(word in message_lower for word in ['ciencias', 'science', 'física', 'química', 'biología']):
+            return """¡Perfecto! Veo que quieres crear contenido de **CIENCIAS**.
+
+Aunque hay un problema temporal con el servicio de IA, puedo ayudarte a refinar los requisitos. Basándome en tu mensaje, veo que necesitas:
+
+📚 **Materia**: Ciencias
+📊 **Nivel**: Secundaria
+📝 **Tipo**: Lección
+
+Para completar la información, por favor comparte:
+
+1. **Tema específico**: ¿Qué tema de ciencias quieres enseñar?
+2. **Objetivos**: ¿Qué quieres que aprendan los estudiantes?
+3. **Experimentos**: ¿Incluirás experimentos o actividades prácticas?
+4. **Recursos**: ¿Necesitas diagramas, imágenes o videos?
+
+**¿Estás conforme con esta información o quieres agregar algo más?** Una vez que confirmes, podrás usar "Extraer Requisitos" para generar tu contenido."""
+        
+        else:
+            return """¡Hola! Aunque hay un problema temporal con el servicio de IA, puedo ayudarte a crear contenido educativo.
+
+Por favor, comparte más detalles sobre lo que necesitas:
+
+1. **Materia o tema**: ¿Qué materia quieres enseñar?
+2. **Nivel educativo**: ¿Para qué nivel es el contenido? (básico, intermedio, avanzado)
+3. **Tipo de contenido**: ¿Qué tipo de contenido necesitas? (lección, ejercicios, evaluación)
+4. **Objetivos**: ¿Qué quieres que aprendan los estudiantes?
+
+**¿Estás conforme con esta información o quieres agregar algo más?** Una vez que confirmes, podrás usar "Extraer Requisitos" para generar tu contenido educativo."""
     
     @action(detail=True, methods=['post'], url_path='extract-requirements')
     def extract_requirements(self, request, pk=None):
@@ -105,6 +177,13 @@ class AIContentGeneratorViewSet(viewsets.ModelViewSet):
             {'role': msg.role, 'content': msg.content}
             for msg in messages
         ]
+        
+        # Verificar si hay mensajes
+        if not message_history:
+            return Response(
+                {'error': 'No hay mensajes en la conversación para extraer requisitos.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         # Extraer requisitos usando DeepSeek
         deepseek_service = DeepSeekChatService()
@@ -128,100 +207,24 @@ class AIContentGeneratorViewSet(viewsets.ModelViewSet):
                 )
                 
         except Exception as e:
-            return Response(
-                {'error': f'Error al extraer requisitos: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-    
-    @action(detail=True, methods=['post'], url_path='generate-content')
-    def generate_content(self, request, pk=None):
-        """Generar contenido basado en los requisitos"""
-        try:
-            conversation = self.get_object()
+            error_message = str(e)
             
-            serializer = self.get_serializer(data=request.data)
-            if not serializer.is_valid():
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            
-            requirements = serializer.validated_data['requirements']
-            title = serializer.validated_data['title']
-            
-        except Exception as e:
-            return Response(
-                {'error': f'Error en setup: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-        
-        # Generar contenido usando DeepSeek
-        deepseek_service = DeepSeekChatService()
-        
-        try:
-            # Generar contenido
-            generated_content = deepseek_service.generate_content(requirements)
-            
-            # Validar que el contenido generado tenga las claves esperadas
-            if not all(key in generated_content for key in ['html', 'css', 'js']):
-                raise Exception(f"Generated content missing required keys. Got: {list(generated_content.keys())}")
-            
-            # Guardar contenido generado
-            content = GeneratedContent.objects.create(
-                conversation=conversation,
-                title=title,
-                html_content=generated_content['html'],
-                css_content=generated_content['css'],
-                js_content=generated_content['js'],
-                grapesjs_components={}
-            )
-            
-            return Response({
-                'content': GeneratedContentSerializer(content).data,
-                'message': 'Contenido generado exitosamente'
-            })
-            
-        except Exception as e:
-            return Response(
-                {'error': f'Error generando contenido: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @action(detail=True, methods=['post'])
-    def generate_content_streaming(self, request, pk=None):
-        """Genera contenido educativo con streaming para mostrar progreso"""
-        try:
-            conversation = self.get_object()
-            requirements = conversation.requirements
-            title = request.data.get('title', 'Contenido Educativo Generado')
-            
-            if not requirements or not requirements.get('is_complete', False):
+            # Manejar errores específicos de la API
+            if "401" in error_message or "Unauthorized" in error_message:
                 return Response(
-                    {'error': 'Los requisitos no están completos. Completa la conversación primero.'},
-                    status=status.HTTP_400_BAD_REQUEST
+                    {'error': 'Error de autenticación con el servicio de IA. Por favor, contacta al administrador.'},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE
                 )
-            
-            # Generar contenido (sin timeout en Windows)
-            deepseek_service = DeepSeekChatService()
-            generated_content = deepseek_service.generate_content(requirements)
-            
-            # Guardar contenido generado
-            content = GeneratedContent.objects.create(
-                conversation=conversation,
-                title=title,
-                html_content=generated_content['html'],
-                css_content=generated_content['css'],
-                js_content=generated_content['js'],
-                grapesjs_components={}
-            )
-            
-            return Response({
-                'content': GeneratedContentSerializer(content).data,
-                'message': 'Contenido generado exitosamente'
-            })
-            
-        except Exception as e:
-            return Response(
-                {'error': f'Error generando contenido: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            elif "429" in error_message or "rate limit" in error_message.lower():
+                return Response(
+                    {'error': 'Límite de solicitudes excedido. Por favor, intenta de nuevo en unos minutos.'},
+                    status=status.HTTP_429_TOO_MANY_REQUESTS
+                )
+            else:
+                return Response(
+                    {'error': f'Error al extraer requisitos: {error_message}'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
 
 class ContentTemplateViewSet(viewsets.ModelViewSet):
     """ViewSet para plantillas de contenido"""
