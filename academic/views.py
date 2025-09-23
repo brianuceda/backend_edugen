@@ -497,6 +497,91 @@ class MaterialViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+    @action(detail=False, methods=['post'], url_path='assign-to-students')
+    def assign_to_students(self, request):
+        """Asignar materiales a estudiantes específicos"""
+        try:
+            # Obtener datos del request
+            material_id = request.data.get('material_id')
+            section_id = request.data.get('section_id')
+            assignment_type = request.data.get('assignment_type', 'general')  # 'general' o 'personalized'
+            selected_students = request.data.get('selected_students', [])
+            
+            if not material_id or not section_id:
+                return Response(
+                    {'error': 'material_id y section_id son requeridos'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Obtener el material
+            try:
+                material = Material.objects.get(id=material_id)
+            except Material.DoesNotExist:
+                return Response(
+                    {'error': 'Material no encontrado'}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Verificar que el profesor tiene acceso al material
+            if request.user.role == 'PROFESOR' and material.professor != request.user:
+                return Response(
+                    {'error': 'No tienes permisos para asignar este material'}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            # Obtener estudiantes de la sección
+            from .models import Section
+            try:
+                section = Section.objects.get(id=section_id)
+                students = section.enrollment_set.filter(is_active=True).values_list('student', flat=True)
+            except Section.DoesNotExist:
+                return Response(
+                    {'error': 'Sección no encontrada'}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Asignar estudiantes según el tipo de asignación
+            if assignment_type == 'general':
+                # Asignar a todos los estudiantes de la sección
+                material.assigned_students.set(students)
+                assigned_count = len(students)
+            else:
+                # Asignar solo a estudiantes seleccionados
+                if not selected_students:
+                    return Response(
+                        {'error': 'Debe seleccionar al menos un estudiante'}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                # Verificar que los estudiantes seleccionados pertenecen a la sección
+                valid_students = [s for s in selected_students if s in students]
+                if not valid_students:
+                    return Response(
+                        {'error': 'Los estudiantes seleccionados no pertenecen a esta sección'}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                material.assigned_students.set(valid_students)
+                assigned_count = len(valid_students)
+            
+            # Marcar el material como personalizado si se asignó a estudiantes específicos
+            if assignment_type == 'personalized':
+                material.is_shared = False
+                material.save()
+            
+            return Response({
+                'message': f'Material asignado exitosamente a {assigned_count} estudiante(s)',
+                'material_id': material.id,
+                'material_name': material.name,
+                'assigned_count': assigned_count,
+                'assignment_type': assignment_type
+            })
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Error al asignar material: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class MaterialViewingSessionViewSet(viewsets.ReadOnlyModelViewSet):
