@@ -8,6 +8,7 @@ from rest_framework import status
 from openai import OpenAI
 import requests
 from django.utils import timezone
+from django.conf import settings
 
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
@@ -528,6 +529,21 @@ def confirm_and_generate_content(request):
             is_public=False
         )
         
+        # Guardar archivo JSON adicional en media/materials/
+        try:
+            import os
+            materials_dir = os.path.join(settings.MEDIA_ROOT, 'materials', f'content_{generated_content.id}')
+            os.makedirs(materials_dir, exist_ok=True)
+            file_path = os.path.join(materials_dir, 'gamma_content.json')
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(gamma_document, f, ensure_ascii=False, indent=2)
+            relative_path = f"materials/content_{generated_content.id}/gamma_content.json"
+            file_url = f"{settings.MEDIA_URL}{relative_path}"
+        except Exception:
+            # Si falla el guardado de archivo, continuar sin bloquear la respuesta
+            relative_path = None
+            file_url = None
+        
         return Response({
             "success": True,
             "content": {
@@ -537,6 +553,8 @@ def confirm_and_generate_content(request):
                 "content_type": generated_content.content_type,
                 "gamma_blocks": generated_content.gamma_blocks,
                 "gamma_document": generated_content.gamma_document,
+                "media_file_path": relative_path,
+                "media_file_url": file_url,
                 "created_at": generated_content.created_at.isoformat(),
                 "updated_at": generated_content.updated_at.isoformat()
             },
