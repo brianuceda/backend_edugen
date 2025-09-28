@@ -8,6 +8,9 @@ from rest_framework import status
 from openai import OpenAI
 import requests
 from django.utils import timezone
+import logging
+
+logger = logging.getLogger(__name__)
 from django.conf import settings
 
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
@@ -470,7 +473,27 @@ def confirm_and_generate_content(request):
         from .services import DeepSeekChatService
         
         service = DeepSeekChatService()
-        gamma_content = service.generate_content(requirements)
+        try:
+            gamma_content = service.generate_content(requirements)
+        except Exception as e:
+            # Como última instancia, construir contenido mínimo local
+            logger.exception("Error generando contenido Gamma, usando respaldo local: %s", str(e))
+            subject = requirements.get('subject', 'Contenido Educativo')
+            blocks = [{
+                'id': 'b1',
+                'type': 'paragraph',
+                'content': f"No se pudo contactar a IA. Respaldo local para: {subject}",
+                'props': {'padding': 'medium'}
+            }]
+            gamma_content = {
+                'blocks': blocks,
+                'document': {
+                    'title': 'Contenido de Respaldo',
+                    'description': f'Respaldo generado localmente para {subject}',
+                    'blocks': blocks
+                },
+                'fallback': True
+            }
         
         if not gamma_content or 'blocks' not in gamma_content:
             return Response({
@@ -479,6 +502,9 @@ def confirm_and_generate_content(request):
                 "content": None
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
+        # Si hubo fallback, seguimos pero indicamos en el mensaje
+        fallback_used = bool(gamma_content.get('fallback'))
+
         blocks = gamma_content.get('blocks', [])
         
         # Crear el documento Gamma completo
@@ -558,7 +584,7 @@ def confirm_and_generate_content(request):
                 "created_at": generated_content.created_at.isoformat(),
                 "updated_at": generated_content.updated_at.isoformat()
             },
-            "message": "Contenido generado exitosamente"
+            "message": "Contenido generado exitosamente" + (" (respaldo)" if fallback_used else "")
         }, status=status.HTTP_201_CREATED)
         
     except Exception as e:

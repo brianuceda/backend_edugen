@@ -1,0 +1,52 @@
+{
+  "id": "doc_1759034941",
+  "title": "Matemáticas - Límite y continuidad - Avanzado",
+  "description": "Contenido educativo generado con IA - Matemáticas - Límite y continuidad",
+  "blocks": [
+    {
+      "id": "b1",
+      "type": "hero",
+      "title": "Límite y Continuidad",
+      "subtitle": "Análisis del Comportamiento de Funciones",
+      "body": "Explora el concepto fundamental de límite matemático y su relación con la continuidad de funciones mediante aproximación numérica y análisis gráfico.",
+      "media": {
+        "type": "image",
+        "src": "https://ejemplo.com/imagenes/limite-funcion-grafica.jpg"
+      },
+      "props": {
+        "background": "gradient",
+        "alignment": "center",
+        "padding": "large"
+      }
+    }
+  ],
+  "metadata": {
+    "author": "Juan Pérez",
+    "tags": [
+      "generado",
+      "ia",
+      "educativo",
+      "matemáticas - límite y continuidad"
+    ],
+    "category": "educativo",
+    "difficulty": "avanzado",
+    "estimatedTime": 45,
+    "language": "es",
+    "learning_objectives": [
+      "Comprender intuitivamente el concepto de límite",
+      "Analizar el comportamiento de funciones mediante tablas de valores",
+      "Identificar límites mediante aproximación numérica"
+    ],
+    "content_type": "activity"
+  },
+  "settings": {
+    "theme": "light",
+    "fontSize": "medium",
+    "showOutline": true,
+    "allowComments": true,
+    "allowCollaboration": false
+  },
+  "createdAt": "2025-09-28T04:49:01.390496+00:00",
+  "updatedAt": "2025-09-28T04:49:01.390496+00:00",
+  "version": 1
+}

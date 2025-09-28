@@ -1,7 +1,9 @@
 import requests
 import json
 import re
+import ast
 from typing import List, Dict, Any, Optional
+import time
 from django.conf import settings
 
 class DeepSeekChatService:
@@ -328,12 +330,12 @@ class DeepSeekChatService:
                 except json.JSONDecodeError as e:
                     print(f"Error parsing JSON: {e}")
                     print(f"JSON string: {json_str}")
-                    # Usar método de respaldo si falla el parsing
-                    return self.extract_requirements_fallback(conversation_history)
+                    # No usar fallback manual: retornar None
+                    return None
         except Exception as e:
             print(f"Error in extraction: {e}")
-            # Usar método de respaldo si falla la API
-            return self.extract_requirements_fallback(conversation_history)
+            # No usar fallback manual: retornar None
+            return None
         
         return None
     
@@ -455,57 +457,245 @@ ESTRUCTURA REQUERIDA:
 7. Bloques list para objetivos y puntos clave
 
 FORMATO DE RESPUESTA:
-Devuelve SOLO un JSON válido con un array de bloques Gamma:
-
-[
-  {{
-    "id": "b1",
-    "type": "hero",
-    "title": "Título principal",
-    "subtitle": "Subtítulo",
-    "body": "Descripción breve",
-    "media": {{
-      "type": "image",
-      "src": "url_de_imagen"
+Devuelve SOLO un JSON válido con la forma estricta:
+{{
+  "blocks": [
+    {{
+      "id": "b1",
+      "type": "hero",
+      "title": "Título principal",
+      "subtitle": "Subtítulo",
+      "body": "Descripción breve",
+      "media": {{"type": "image", "src": "url_de_imagen"}},
+      "props": {{"background": "gradient", "alignment": "center", "padding": "large"}}
     }},
-    "props": {{
-      "background": "gradient",
-      "alignment": "center",
-      "padding": "large"
+    {{
+      "id": "b2",
+      "type": "paragraph",
+      "content": "Contenido del párrafo...",
+      "props": {{"padding": "medium"}}
     }}
-  }},
-  {{
-    "id": "b2",
-    "type": "paragraph",
-    "content": "Contenido del párrafo...",
-    "props": {{
-      "padding": "medium"
-    }}
-  }}
-]
+  ]
+}}
 
 ENFOQUE: Contenido educativo estructurado en bloques editables con Gamma."""
         
         try:
             response = self.generate_content_with_limits([
                 {"role": "user", "content": generation_prompt}
-            ])
+            ], temperature=0.25, max_tokens=3000, response_format={"type": "json_object"})
             
             if 'choices' not in response or len(response['choices']) == 0:
                 raise Exception("No choices in DeepSeek response")
             
-            content = response['choices'][0]['message']['content']
-            
-            # Extraer bloques Gamma de la respuesta
+            message = response['choices'][0]['message']
+            content = message.get('content')
+
+            # Fallback: algunas APIs pueden devolver function/tool calls con argumentos JSON
+            if (not content or (isinstance(content, str) and ('{' not in content and '[' not in content))):
+                tool_calls = message.get('tool_calls') or []
+                if tool_calls:
+                    try:
+                        # Tomar el primer tool_call y usar sus argumentos como contenido JSON
+                        arguments = tool_calls[0].get('function', {}).get('arguments')
+                        if arguments:
+                            content = arguments
+                    except Exception:
+                        pass
+
+            # Extraer bloques Gamma de la respuesta (admite str, dict o list)
             parsed_content = self.parse_generated_content(content)
-            
+            blocks = parsed_content.get('blocks') or []
+
+            # Si el resultado es demasiado corto, hacer una segunda generación estricta
+            only_hero = len(blocks) == 1 and isinstance(blocks[0], dict) and blocks[0].get('type') == 'hero'
+            if len(blocks) < 6 or only_hero:
+                strict_prompt = f"""
+                Genera contenido educativo COMPLETO en formato Gamma para:
+                Materia: {requirements.get('subject', 'Tema General')}
+                Nivel: {requirements.get('course_level', 'básico')}
+                Tipo: {requirements.get('content_type', 'lección')}
+                Objetivos: {', '.join(requirements.get('learning_objectives', ['Aprender el tema']))}
+
+                Responde ÚNICAMENTE un JSON válido con esta forma:
+                {{
+                  "blocks": [
+                    {{"id":"b1","type":"hero","title":"...","subtitle":"...","body":"...","media":{{"type":"image","src":"/api/placeholder/800/400"}},"props":{{"background":"gradient","alignment":"center","padding":"large"}}}},
+                    {{"id":"b2","type":"paragraph","content":"Introducción clara al tema","props":{{"padding":"medium"}}}},
+                    {{"id":"b3","type":"heading","level":2,"content":"Objetivos de aprendizaje","props":{{"align":"left"}}}},
+                    {{"id":"b4","type":"list","listType":"unordered","items":["Objetivo 1","Objetivo 2","Objetivo 3"],"props":{{"padding":"medium"}}}},
+                    {{"id":"b5","type":"heading","level":2,"content":"Introducción","props":{{"align":"left"}}}},
+                    {{"id":"b6","type":"paragraph","content":"Desarrollo introductorio del tema","props":{{"padding":"medium"}}}},
+                    {{"id":"b7","type":"heading","level":2,"content":"Desarrollo","props":{{"align":"left"}}}},
+                    {{"id":"b8","type":"paragraph","content":"Explicación con ejemplos","props":{{"padding":"medium"}}}},
+                    {{"id":"b9","type":"callout","variant":"info","title":"Nota","content":"Punto clave","props":{{"padding":"medium"}}}},
+                    {{"id":"b10","type":"heading","level":2,"content":"Ejercicios","props":{{"align":"left"}}}},
+                    {{"id":"b11","type":"quiz","question":"Pregunta 1","options":["A","B","C","D"],"correctAnswer":0,"explanation":"Explicación","points":10,"props":{{"padding":"medium"}}}},
+                    {{"id":"b12","type":"paragraph","content":"Cierre del contenido","props":{{"padding":"medium"}}}}
+                  ]
+                }}
+
+                REQUISITOS ESTRICTOS:
+                - Al menos 10-12 bloques
+                - Incluir hero, intro, objetivos (lista), 3 secciones con headings y párrafos, ejercicios (quiz), callout
+                - Español, claro y educativo
+                - Sin texto fuera del JSON
+                """
+                response2 = self.generate_content_with_limits([
+                    {"role": "user", "content": strict_prompt}
+                ], temperature=0.2, max_tokens=3500, response_format={"type": "json_object"})
+
+                message2 = response2['choices'][0]['message']
+                content2 = message2.get('content')
+                if (not content2 or (isinstance(content2, str) and ('{' not in content2 and '[' not in content2))):
+                    tool_calls2 = message2.get('tool_calls') or []
+                    if tool_calls2:
+                        try:
+                            arguments2 = tool_calls2[0].get('function', {}).get('arguments')
+                            if arguments2:
+                                content2 = arguments2
+                        except Exception:
+                            pass
+                parsed_content = self.parse_generated_content(content2)
+
             return parsed_content
             
-        except Exception as e:
-            return self.generate_fallback_gamma_content()
+        except Exception:
+            # Fallback garantizado: construir bloques mínimos válidos con los requisitos
+            subject = requirements.get('subject', 'Contenido Educativo')
+            objectives = requirements.get('learning_objectives') or [
+                f"Comprender los conceptos básicos de {subject}",
+                f"Aplicar {subject} en ejemplos prácticos"
+            ]
+            blocks = [
+                {
+                    'id': 'b1',
+                    'type': 'hero',
+                    'title': subject,
+                    'subtitle': requirements.get('content_type', 'lección').capitalize(),
+                    'body': requirements.get('additional_requirements', '') or 'Contenido generado automáticamente (modo respaldo).',
+                    'media': {'type': 'image', 'src': '/api/placeholder/800/400', 'alt': subject},
+                    'props': {'background': 'gradient', 'alignment': 'center', 'padding': 'large'}
+                },
+                {
+                    'id': 'b2',
+                    'type': 'heading',
+                    'level': 2,
+                    'content': 'Objetivos de aprendizaje',
+                    'props': {'align': 'left'}
+                },
+                {
+                    'id': 'b3',
+                    'type': 'list',
+                    'listType': 'unordered',
+                    'items': objectives,
+                    'props': {'padding': 'medium'}
+                },
+                {
+                    'id': 'b4',
+                    'type': 'paragraph',
+                    'content': f"Nivel: {requirements.get('course_level', 'intermedio')} — Idioma: {requirements.get('language', 'es')}",
+                    'props': {'padding': 'medium'}
+                }
+            ]
+            blocks = self.ensure_minimum_gamma_blocks(blocks, requirements)
+            return {
+                'blocks': blocks,
+                'document': {
+                    'title': 'Contenido Educativo Generado (Respaldo)',
+                    'description': f"Generado sin conexión completa a IA — {subject}",
+                    'blocks': blocks
+                },
+                'fallback': True
+            }
+
+    def ensure_minimum_gamma_blocks(self, blocks: List[Dict[str, Any]], requirements: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Asegura una estructura mínima útil si el modelo devolvió muy poco contenido."""
+        def next_id(n: int) -> str:
+            return f"b{n+1}"
+
+        # Construir índice por tipo
+        types = [b.get('type') for b in blocks if isinstance(b, dict)]
+        idx = len(blocks)
+
+        subject = requirements.get('subject', 'Contenido Educativo')
+        objectives = requirements.get('learning_objectives') or [
+            f"Comprender los conceptos básicos de {subject}",
+            f"Aplicar {subject} en ejemplos prácticos"
+        ]
+
+        # Garantizar hero al inicio
+        if 'hero' not in types:
+            hero_block = {
+                'id': next_id(idx),
+                'type': 'hero',
+                'title': subject,
+                'subtitle': requirements.get('content_type', 'lección').capitalize(),
+                'body': requirements.get('additional_requirements', '') or 'Introducción al contenido.',
+                'media': {'type': 'image', 'src': '/api/placeholder/800/400', 'alt': subject},
+                'props': {'background': 'gradient', 'alignment': 'center', 'padding': 'large'}
+            }
+            blocks.insert(0, hero_block)
+            idx += 1
+            types.insert(0, 'hero')
+
+        # Introducción (paragraph) después del hero si no existe
+        if not any(t == 'paragraph' for t in types):
+            blocks.append({
+                'id': next_id(idx),
+                'type': 'paragraph',
+                'content': f"Este recurso aborda {subject} con ejemplos y ejercicios.",
+                'props': {'padding': 'medium'}
+            })
+            idx += 1
+            types.append('paragraph')
+
+        # Lista de objetivos si no está
+        has_objectives_list = any(b.get('type') == 'list' and any('objetivos' in (b.get('title','').lower() + b.get('content','').lower()) for _k in [0]) for b in blocks)
+        if not has_objectives_list:
+            # Añadir heading + list
+            blocks.append({
+                'id': next_id(idx),
+                'type': 'heading',
+                'level': 2,
+                'content': 'Objetivos de aprendizaje',
+                'props': {'align': 'left'}
+            })
+            idx += 1
+            blocks.append({
+                'id': next_id(idx),
+                'type': 'list',
+                'listType': 'unordered',
+                'items': objectives,
+                'props': {'padding': 'medium'}
+            })
+            idx += 1
+
+        # Secciones principales si falta estructura
+        need_sections = not any(b.get('type') == 'heading' for b in blocks)
+        if need_sections:
+            for title in ['Introducción', 'Desarrollo', 'Ejercicios']:
+                blocks.append({
+                    'id': next_id(idx),
+                    'type': 'heading',
+                    'level': 2,
+                    'content': title,
+                    'props': {'align': 'left'}
+                })
+                idx += 1
+                para = 'Contenido de la sección.' if title != 'Ejercicios' else 'Ejercicios sugeridos: resuelve 3 problemas relacionados.'
+                blocks.append({
+                    'id': next_id(idx),
+                    'type': 'paragraph',
+                    'content': para,
+                    'props': {'padding': 'medium'}
+                })
+                idx += 1
+
+        return blocks
     
-    def generate_content_with_limits(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:
-        """Genera contenido con límites estrictos de tokens para respuesta rápida"""
+    def generate_content_with_limits(self, messages: List[Dict[str, str]], temperature: float = 0.3, max_tokens: int = 2500, response_format: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Genera contenido con límites configurables para respuesta controlada"""
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
@@ -523,40 +713,52 @@ ENFOQUE: Contenido educativo estructurado en bloques editables con Gamma."""
                 "content": msg.get('content', '')
             })
         
-        payload = {
+        payload: Dict[str, Any] = {
             "model": self.model,
             "messages": chat_messages,
-            "temperature": 0.3,  # Menor temperatura para respuestas más determinísticas
-            "max_tokens": 1500,  # Reducido para respuesta más rápida
-            "stream": False
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "stream": False,
+            # Intentar forzar salida JSON (si la API lo soporta)
+            "response_format": response_format if response_format is not None else {"type": "json_object"}
         }
         
-        try:
-            response = requests.post(
-                f"{self.base_url}/chat/completions", 
-                headers=headers, 
-                json=payload, 
-                timeout=60
-            )
-            
-            if response.status_code != 200:
-                raise Exception(f"API Error {response.status_code}: {response.text}")
-            
-            response_data = response.json()
-            return response_data
-        except requests.exceptions.Timeout:
-            raise Exception("Timeout: La API de DeepSeek tardó demasiado en responder")
-        except requests.exceptions.ConnectionError as e:
-            raise Exception("Error de conexión: No se pudo conectar con la API de DeepSeek")
-        except requests.exceptions.RequestException as e:
-            raise Exception(f"Error en DeepSeek API: {str(e)}")
-        except Exception as e:
-            raise Exception(f"Error inesperado: {str(e)}")
+        last_error: Optional[Exception] = None
+        for attempt in range(3):
+            try:
+                response = requests.post(
+                    f"{self.base_url}/chat/completions",
+                    headers=headers,
+                    json=payload,
+                    timeout=90
+                )
+                if response.status_code != 200:
+                    raise Exception(f"API Error {response.status_code}: {response.text}")
+                return response.json()
+            except (requests.exceptions.Timeout, requests.exceptions.ReadTimeout):
+                last_error = Exception("Timeout: La API de DeepSeek tardó demasiado en responder")
+            except requests.exceptions.ConnectionError:
+                last_error = Exception("Error de conexión: No se pudo conectar con la API de DeepSeek")
+            except requests.exceptions.RequestException as e:
+                last_error = Exception(f"Error en DeepSeek API: {str(e)}")
+            except Exception as e:
+                last_error = Exception(f"Error inesperado: {str(e)}")
+            # Backoff antes del siguiente intento
+            time.sleep(2 ** attempt)
+        # Si llegó aquí, fallaron todos los intentos
+        assert last_error is not None
+        raise last_error
     
     
     
-    def parse_generated_content(self, content: str) -> Dict[str, Any]:
-        """Parsea el contenido generado para extraer bloques Gamma"""
+    def parse_generated_content(self, content: Any) -> Dict[str, Any]:
+        """Parsea el contenido generado para extraer bloques Gamma con tolerancia a distintos formatos.
+
+        Acepta:
+        - str: Contenido con o sin code fences
+        - dict: Objeto ya parseado que puede contener "blocks"
+        - list: Lista de bloques directamente
+        """
         result = {
             'blocks': [],
             'document': {
@@ -565,194 +767,242 @@ ENFOQUE: Contenido educativo estructurado en bloques editables con Gamma."""
                 'blocks': []
             }
         }
-        
-        try:
-            # Buscar JSON en la respuesta
-            json_match = re.search(r'\[.*\]', content, re.DOTALL)
-            if json_match:
-                blocks = json.loads(json_match.group())
-                result['blocks'] = blocks
-                result['document']['blocks'] = blocks
-                result['document']['title'] = 'Contenido Educativo Generado'
-                result['document']['description'] = 'Contenido educativo generado con IA'
-                return result
-        except json.JSONDecodeError:
-            pass
-        
-        # Si no se encontró JSON válido, generar fallback
-        return self.generate_fallback_gamma_content()
-    
-    def generate_fallback_gamma_content(self) -> Dict[str, Any]:
-        """Genera contenido Gamma de fallback cuando la API falla"""
-        return {
-            'blocks': [
-                {
-                    "id": "b1",
-                    "type": "hero",
-                    "title": "Polinomios: Suma y Resta",
-                    "subtitle": "Matemáticas - 1° de Secundaria",
-                    "body": "Aprende a identificar términos de polinomios y realizar operaciones básicas de suma y resta.",
-                    "media": {
-                        "type": "image",
-                        "src": ""
-                    },
-                    "props": {
-                        "background": "gradient",
-                        "alignment": "center",
-                        "padding": "large"
-                    }
-                },
-                {
-                    "id": "b2",
-                    "type": "heading",
-                    "content": "¿Qué es un Polinomio?",
-                    "props": {
-                        "level": 2,
-                        "padding": "medium"
-                    }
-                },
-                {
-                    "id": "b3",
-                    "type": "paragraph",
-                    "content": "Un polinomio es una expresión algebraica que contiene términos con variables elevadas a potencias enteras no negativas. Cada término tiene un coeficiente (número) y una parte literal (variable con su exponente).",
-                    "props": {
-                        "padding": "medium"
-                    }
-                },
-                {
-                    "id": "b4",
-                    "type": "heading",
-                    "content": "Identificación de Términos",
-                    "props": {
-                        "level": 2,
-                        "padding": "medium"
-                    }
-                },
-                {
-                    "id": "b5",
-                    "type": "paragraph",
-                    "content": "Para identificar los términos de un polinomio, debemos separar la expresión por los signos + y -. Cada término incluye su signo.",
-                    "props": {
-                        "padding": "medium"
-                    }
-                },
-                {
-                    "id": "b6",
-                    "type": "callout",
-                    "content": "Ejemplo: En el polinomio 3x² + 2x - 5, los términos son: +3x², +2x, -5",
-                    "props": {
-                        "type": "info",
-                        "padding": "medium"
-                    }
-                },
-                {
-                    "id": "b7",
-                    "type": "heading",
-                    "content": "Grado de un Polinomio",
-                    "props": {
-                        "level": 2,
-                        "padding": "medium"
-                    }
-                },
-                {
-                    "id": "b8",
-                    "type": "paragraph",
-                    "content": "El grado de un polinomio es el mayor exponente de la variable en el polinomio. Para determinar el grado, identificamos el término con el exponente más alto.",
-                    "props": {
-                        "padding": "medium"
-                    }
-                },
-                {
-                    "id": "b9",
-                    "type": "callout",
-                    "content": "Ejemplo: En 3x² + 2x - 5, el grado es 2 (porque el mayor exponente es 2).",
-                    "props": {
-                        "type": "success",
-                        "padding": "medium"
-                    }
-                },
-                {
-                    "id": "b10",
-                    "type": "heading",
-                    "content": "Suma de Polinomios",
-                    "props": {
-                        "level": 2,
-                        "padding": "medium"
-                    }
-                },
-                {
-                    "id": "b11",
-                    "type": "paragraph",
-                    "content": "Para sumar polinomios, agrupamos los términos semejantes (misma variable y mismo exponente) y sumamos sus coeficientes.",
-                    "props": {
-                        "padding": "medium"
-                    }
-                },
-                {
-                    "id": "b12",
-                    "type": "heading",
-                    "content": "Resta de Polinomios",
-                    "props": {
-                        "level": 2,
-                        "padding": "medium"
-                    }
-                },
-                {
-                    "id": "b13",
-                    "type": "paragraph",
-                    "content": "Para restar polinomios, cambiamos el signo de todos los términos del segundo polinomio y luego sumamos como en el caso anterior.",
-                    "props": {
-                        "padding": "medium"
-                    }
-                },
-                {
-                    "id": "b14",
-                    "type": "heading",
-                    "content": "Ejercicios Prácticos",
-                    "props": {
-                        "level": 2,
-                        "padding": "medium"
-                    }
-                },
-                {
-                    "id": "b15",
-                    "type": "paragraph",
-                    "content": "1. Identifica los términos del polinomio: 4x³ - 2x² + 7x - 1\n2. Determina el grado del polinomio: 5x⁴ + 3x² - 2x + 8\n3. Suma los polinomios: (3x² + 2x - 5) + (x² - 4x + 3)\n4. Resta los polinomios: (5x² - 3x + 2) - (2x² + x - 4)",
-                    "props": {
-                        "padding": "medium"
-                    }
+
+        # Caso 0: si ya es dict/list, usar directamente
+        if isinstance(content, list):
+            blocks = content
+        elif isinstance(content, dict):
+            blocks = content.get('blocks') or content.get('document', {}).get('blocks') or []
+            if not blocks and 'type' in content:
+                # Puede ser un único bloque suelto
+                blocks = [content]
+        else:
+            # Asegurar que sea string para parseo por regex
+            if not isinstance(content, str):
+                raise ValueError('AI did not return valid JSON blocks')
+
+            def _sanitize_and_parse(raw_text: str) -> Any:
+                # Primer intento: JSON estándar
+                try:
+                    return json.loads(raw_text)
+                except json.JSONDecodeError:
+                    pass
+
+                # Segundo intento: limpiar BOM y comillas tipográficas
+                sanitized = raw_text.strip().replace('\uFEFF', '')
+                sanitized = sanitized.replace('“', '"').replace('”', '"').replace('‟', '"')
+                sanitized = sanitized.replace('‘', "'").replace('’', "'")
+
+                # Quitar comas colgantes antes de } o ]
+                sanitized = re.sub(r",\s*(\}|\])", r"\1", sanitized)
+
+                # Intento JSON otra vez tras saneo básico
+                try:
+                    return json.loads(sanitized)
+                except json.JSONDecodeError:
+                    pass
+
+                # Tercer intento: convertir a literal de Python tolerante
+                py_like = sanitized
+                # Reemplazar true/false/null por True/False/None cuando estén fuera de comillas
+                py_like = re.sub(r'(?<=[:\s\[,])true(?=[\s,\]}])', 'True', py_like, flags=re.IGNORECASE)
+                py_like = re.sub(r'(?<=[:\s\[,])false(?=[\s,\]}])', 'False', py_like, flags=re.IGNORECASE)
+                py_like = re.sub(r'(?<=[:\s\[,])null(?=[\s,\]}])', 'None', py_like, flags=re.IGNORECASE)
+                # Si hay claves sin comillas, intentar comillarlas de forma conservadora (clave simple alfanumérica)
+                py_like = re.sub(r'([\{,]\s*)([A-Za-z_][A-Za-z0-9_]*)(\s*:) ', r'\1"\2"\3 ', py_like)
+
+                try:
+                    return ast.literal_eval(py_like)
+                except Exception:
+                    # Último intento: eliminar comentarios tipo // ... o /* ... */ si los hubiera
+                    without_line_comments = re.sub(r"//.*", "", py_like)
+                    without_block_comments = re.sub(r"/\*[\s\S]*?\*/", "", without_line_comments)
+                    # Eliminar comas colgantes de nuevo tras quitar comentarios
+                    without_block_comments = re.sub(r",\s*(\}|\])", r"\1", without_block_comments)
+                    try:
+                        return ast.literal_eval(without_block_comments)
+                    except Exception:
+                        # Propagar para manejo superior
+                        raise
+
+            def _find_json_candidates(text: str) -> List[str]:
+                candidates: List[str] = []
+                # 1) Code fences
+                for m in re.finditer(r"```(?:json)?\s*([\{\[][\s\S]*?)\s*```", text, re.IGNORECASE):
+                    candidates.append(m.group(1))
+                # 2) Balanced scan from each '{' or '[' occurrence (cap to 20 starts)
+                starts: List[int] = [i for i, ch in enumerate(text) if ch in '{['][:20]
+                for start_idx in starts:
+                    brace_depth = 0
+                    bracket_depth = 0
+                    in_string = False
+                    string_quote = ''
+                    escape = False
+                    for i in range(start_idx, len(text)):
+                        ch = text[i]
+                        if in_string:
+                            if escape:
+                                escape = False
+                            elif ch == '\\':
+                                escape = True
+                            elif ch == string_quote:
+                                in_string = False
+                        else:
+                            if ch in ('"', "'"):
+                                in_string = True
+                                string_quote = ch
+                            elif ch == '{':
+                                brace_depth += 1
+                            elif ch == '}':
+                                if brace_depth > 0:
+                                    brace_depth -= 1
+                            elif ch == '[':
+                                bracket_depth += 1
+                            elif ch == ']':
+                                if bracket_depth > 0:
+                                    bracket_depth -= 1
+                            if brace_depth == 0 and bracket_depth == 0 and i > start_idx:
+                                candidates.append(text[start_idx:i+1])
+                                break
+                # Dedup preserving order
+                seen = set()
+                unique: List[str] = []
+                for c in candidates:
+                    if c not in seen:
+                        unique.append(c)
+                        seen.add(c)
+                return unique
+
+            candidates = _find_json_candidates(content)
+            if not candidates:
+                raise ValueError('AI did not return valid JSON blocks')
+
+            # Priorizar los que contengan "\"blocks\""
+            def _score(seg: str) -> tuple:
+                has_blocks = '"blocks"' in seg or "'blocks'" in seg
+                return (1 if has_blocks else 0, len(seg))
+
+            candidates.sort(key=_score, reverse=True)
+
+            data: Any = None
+            last_error: Optional[Exception] = None
+            for seg in candidates:
+                try:
+                    data = _sanitize_and_parse(seg)
+                    break
+                except Exception as e:
+                    last_error = e
+                    continue
+
+            if data is None:
+                raise last_error if last_error else ValueError('AI did not return valid JSON blocks')
+
+            # Extraer bloques de forma robusta desde múltiples formas
+            def _looks_like_block(obj: Any) -> bool:
+                return isinstance(obj, dict) and isinstance(obj.get('type'), str)
+
+            def _extract_blocks_any(value: Any) -> Optional[List[Any]]:
+                # Caso lista directa
+                if isinstance(value, list):
+                    if all(isinstance(x, dict) for x in value) and any(_looks_like_block(x) for x in value):
+                        return value
+                    # Si la lista contiene un único bloque dict
+                    if len(value) == 1 and isinstance(value[0], dict):
+                        return value
+                # Caso dict con claves habituales
+                if isinstance(value, dict):
+                    # Claves comunes
+                    for key in ['blocks', 'items']:
+                        v = value.get(key)
+                        if isinstance(v, list):
+                            if all(isinstance(x, dict) for x in v):
+                                return v
+                        if isinstance(v, dict):
+                            # Mapa de id->bloque
+                            mapped_list = list(v.values())
+                            if all(isinstance(x, dict) for x in mapped_list):
+                                return mapped_list
+                    # Rutas anidadas comunes
+                    for parent in ['document', 'data', 'gamma', 'payload', 'result']:
+                        pv = value.get(parent)
+                        if isinstance(pv, dict):
+                            for key in ['blocks', 'items']:
+                                v = pv.get(key)
+                                if isinstance(v, list) and all(isinstance(x, dict) for x in v):
+                                    return v
+                                if isinstance(v, dict):
+                                    mapped_list = list(v.values())
+                                    if all(isinstance(x, dict) for x in mapped_list):
+                                        return mapped_list
+                    # Búsqueda recursiva en subvalores
+                    for sub in value.values():
+                        found = _extract_blocks_any(sub)
+                        if found is not None:
+                            return found
+                return None
+
+            blocks = _extract_blocks_any(data) if not isinstance(data, list) else data
+
+        if not isinstance(blocks, list):
+            # Intentar coerción a bloques válidos desde data crudo
+            def _make_paragraph_block(text: str, idx: int) -> Dict[str, Any]:
+                return {
+                    'id': f"b{idx+1}",
+                    'type': 'paragraph',
+                    'content': text,
+                    'props': {'padding': 'medium'}
                 }
-            ],
-            'document': {
-                'title': 'Polinomios: Suma y Resta',
-                'description': 'Material educativo sobre polinomios para 1° de secundaria',
-                'blocks': [
-                    {
-                        "id": "b1",
-                        "type": "hero",
-                        "title": "Contenido Educativo",
-                        "subtitle": "Generado con IA",
-                        "body": "Este contenido ha sido generado automáticamente. Puedes editarlo usando el editor Gamma.",
-                        "media": {
-                            "type": "image",
-                            "src": ""
-                        },
-                        "props": {
-                            "background": "gradient",
-                            "alignment": "center",
-                            "padding": "large"
-                        }
-                    },
-                    {
-                        "id": "b2",
-                        "type": "paragraph",
-                        "content": "Este es un contenido educativo generado automáticamente. Puedes editarlo y personalizarlo según tus necesidades.",
-                        "props": {
-                            "padding": "medium"
-                        }
-                    }
-                ]
-            }
-        }
+
+            def _make_hero_block(obj: Dict[str, Any]) -> Dict[str, Any]:
+                return {
+                    'id': 'b1',
+                    'type': 'hero',
+                    'title': obj.get('title') or obj.get('heading') or 'Contenido generado',
+                    'subtitle': obj.get('subtitle') or '',
+                    'body': obj.get('body') or obj.get('description') or '',
+                    'media': obj.get('media') or {'type': 'image', 'src': '/api/placeholder/800/400', 'alt': 'Imagen'},
+                    'props': obj.get('props') or {'background': 'gradient', 'alignment': 'center', 'padding': 'large'}
+                }
+
+            def _coerce_to_blocks(value: Any) -> List[Dict[str, Any]]:
+                # Lista de strings → párrafos
+                if isinstance(value, list) and all(isinstance(x, str) for x in value):
+                    return [_make_paragraph_block(x, i) for i, x in enumerate(value)]
+                # Lista de dicts sin 'type' → intentar inferir
+                if isinstance(value, list) and all(isinstance(x, dict) for x in value):
+                    coerced: List[Dict[str, Any]] = []
+                    for i, obj in enumerate(value):
+                        if isinstance(obj.get('type'), str):
+                            coerced.append(obj)
+                        elif any(k in obj for k in ['title', 'heading', 'body', 'subtitle']):
+                            if i == 0:
+                                coerced.append(_make_hero_block(obj))
+                            else:
+                                text = obj.get('content') or obj.get('body') or obj.get('description') or json.dumps(obj, ensure_ascii=False)
+                                coerced.append(_make_paragraph_block(text, i))
+                        else:
+                            coerced.append(_make_paragraph_block(json.dumps(obj, ensure_ascii=False), i))
+                    return coerced
+                # Dict que parece un bloque único
+                if isinstance(value, dict):
+                    if isinstance(value.get('type'), str):
+                        return [value]
+                    if any(k in value for k in ['title', 'heading', 'body', 'subtitle']):
+                        return [_make_hero_block(value)]
+                    if isinstance(value.get('content'), str):
+                        return [_make_paragraph_block(value['content'], 0)]
+                    # Fallback: todo el dict como texto
+                    return [_make_paragraph_block(json.dumps(value, ensure_ascii=False), 0)]
+                # Otro tipo: representar como párrafo texto
+                return [_make_paragraph_block(str(value), 0)]
+
+            blocks = _coerce_to_blocks(blocks if blocks is not None else data)
+
+        result['blocks'] = blocks
+        result['document']['blocks'] = blocks
+        result['document']['title'] = 'Contenido Educativo Generado'
+        result['document']['description'] = 'Contenido educativo generado con IA'
+        return result
+    
     
  

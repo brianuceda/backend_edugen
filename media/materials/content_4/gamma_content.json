@@ -1,0 +1,170 @@
+{
+  "id": "doc_1759034494",
+  "title": "CTA - Biodiversidad - Básico",
+  "description": "Contenido educativo generado con IA - CTA - Biodiversidad",
+  "blocks": [
+    {
+      "id": "b1",
+      "type": "hero",
+      "title": "CTA - Biodiversidad",
+      "subtitle": "Explorando la riqueza de la vida",
+      "body": "Una introducción básica a los conceptos fundamentales de la biodiversidad en CTA.",
+      "media": {
+        "type": "image",
+        "src": "https://ejemplo.com/imagen-biodiversidad.jpg"
+      },
+      "props": {
+        "background": "gradient",
+        "alignment": "center",
+        "padding": "large"
+      }
+    },
+    {
+      "id": "b2",
+      "type": "paragraph",
+      "content": "La biodiversidad se refiere a la variedad de vida en la Tierra, incluyendo especies, ecosistemas y diversidad genética. En esta lección, aprenderás sus conceptos básicos y su importancia.",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b3",
+      "type": "heading",
+      "content": "¿Qué es la biodiversidad?",
+      "props": {
+        "level": "h2",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b4",
+      "type": "paragraph",
+      "content": "La biodiversidad abarca tres niveles principales: diversidad de especies, diversidad genética y diversidad de ecosistemas. Es esencial para la estabilidad del planeta.",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b5",
+      "type": "callout",
+      "content": "La biodiversidad no solo incluye animales y plantas, sino también microorganismos y sus interacciones.",
+      "props": {
+        "type": "info",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b6",
+      "type": "heading",
+      "content": "Objetivos de aprendizaje",
+      "props": {
+        "level": "h2",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b7",
+      "type": "list",
+      "items": [
+        "Definir biodiversidad",
+        "Identificar los niveles de biodiversidad",
+        "Comprender su importancia ecológica"
+      ],
+      "props": {
+        "type": "unordered",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b8",
+      "type": "heading",
+      "content": "Puntos clave",
+      "props": {
+        "level": "h3",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b9",
+      "type": "list",
+      "items": [
+        "La biodiversidad es crucial para los servicios ecosistémicos",
+        "Las actividades humanas pueden amenazarla",
+        "La conservación es vital para el futuro"
+      ],
+      "props": {
+        "type": "ordered",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b10",
+      "type": "quiz",
+      "question": "¿Cuál de los siguientes NO es un nivel de biodiversidad?",
+      "options": [
+        "Diversidad de especies",
+        "Diversidad cultural",
+        "Diversidad genética",
+        "Diversidad de ecosistemas"
+      ],
+      "answer": 1,
+      "explanation": "La diversidad cultural no es un nivel biológico de biodiversidad; los niveles son especie, genética y ecosistema.",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b11",
+      "type": "callout",
+      "content": "Recuerda: La pérdida de biodiversidad puede afectar la seguridad alimentaria y la salud humana.",
+      "props": {
+        "type": "warning",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b12",
+      "type": "quiz",
+      "question": "¿Por qué es importante la biodiversidad?",
+      "options": [
+        "Solo por su belleza",
+        "Para la estabilidad de los ecosistemas y servicios como la polinización",
+        "Porque aumenta el turismo",
+        "No tiene importancia real"
+      ],
+      "answer": 1,
+      "explanation": "La biodiversidad sostiene ecosistemas que proporcionan servicios esenciales como aire limpio y agua.",
+      "props": {
+        "padding": "medium"
+      }
+    }
+  ],
+  "metadata": {
+    "author": "Juan Pérez",
+    "tags": [
+      "generado",
+      "ia",
+      "educativo",
+      "cta - biodiversidad"
+    ],
+    "category": "educativo",
+    "difficulty": "básico",
+    "estimatedTime": 45,
+    "language": "es",
+    "learning_objectives": [
+      "Aprender sobre CTA - Biodiversidad",
+      "Entender los conceptos fundamentales de CTA - Biodiversidad"
+    ],
+    "content_type": "lecture_notes"
+  },
+  "settings": {
+    "theme": "light",
+    "fontSize": "medium",
+    "showOutline": true,
+    "allowComments": true,
+    "allowCollaboration": false
+  },
+  "createdAt": "2025-09-28T04:41:34.908743+00:00",
+  "updatedAt": "2025-09-28T04:41:34.908743+00:00",
+  "version": 1
+}
