@@ -35,11 +35,38 @@ def generate_gamma_blocks(request):
     try:
         # Verificar si el cliente está disponible
         if not client:
+            # Devolver bloques de ejemplo cuando la API no está configurada
+            example_blocks = [
+                {
+                    "id": "b1",
+                    "type": "hero",
+                    "title": "Contenido Educativo",
+                    "subtitle": "Generado automáticamente",
+                    "body": f"Este es contenido de ejemplo sobre: {prompt}",
+                    "media": {
+                        "type": "icon",
+                        "value": "📚"
+                    },
+                    "props": {
+                        "alignment": "center",
+                        "padding": "large"
+                    }
+                },
+                {
+                    "id": "b2",
+                    "type": "paragraph",
+                    "content": "Para habilitar la generación real de contenido con IA, configure la variable de entorno DEEPSEEK_API_KEY con su clave de API de DeepSeek.",
+                    "props": {
+                        "alignment": "left",
+                        "padding": "medium"
+                    }
+                }
+            ]
             return Response({
-                "success": False,
-                "error": "API key de DeepSeek no configurada. Por favor, configure DEEPSEEK_API_KEY en las variables de entorno.",
-                "blocks": []
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                "success": True,
+                "blocks": example_blocks,
+                "message": "Bloques de ejemplo generados (API key no configurada)"
+            }, status=status.HTTP_200_OK)
         
         # Crear el prompt específico para generar bloques Gamma
         system_prompt = f"""Eres un generador de bloques educativos para el editor Gamma. 
