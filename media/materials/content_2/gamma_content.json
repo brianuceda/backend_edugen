@@ -1,0 +1,228 @@
+{
+  "id": "doc_1759026692",
+  "title": "Matemáticas - Introducción a los Números Naturales - Básico",
+  "description": "Contenido educativo generado con IA - Matemáticas - Introducción a los Números Naturales",
+  "blocks": [
+    {
+      "id": "b1",
+      "type": "hero",
+      "title": "Introducción a los Números Naturales",
+      "subtitle": "Matemáticas Básicas",
+      "body": "Aprende qué son los números naturales, sus propiedades y cómo realizar operaciones básicas de suma.",
+      "media": {
+        "type": "image",
+        "src": "https://ejemplo.com/imagen-numeros-naturales.jpg"
+      },
+      "props": {
+        "background": "gradient",
+        "alignment": "center",
+        "padding": "large"
+      }
+    },
+    {
+      "id": "b2",
+      "type": "paragraph",
+      "content": "Los números naturales son la base de las matemáticas y se utilizan para contar objetos. En esta lección, exploraremos su definición, propiedades y cómo sumarlos correctamente.",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b3",
+      "type": "list",
+      "items": [
+        "Comprender la definición de números naturales",
+        "Identificar las propiedades de los números naturales",
+        "Aprender operaciones básicas de suma con números naturales"
+      ],
+      "props": {
+        "listType": "unordered",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b4",
+      "type": "heading",
+      "content": "¿Qué son los Números Naturales?",
+      "props": {
+        "level": "h2",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b5",
+      "type": "paragraph",
+      "content": "Los números naturales son aquellos que utilizamos para contar elementos en un conjunto. Comienzan desde el 1 y continúan infinitamente: 1, 2, 3, 4, 5, ...",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b6",
+      "type": "callout",
+      "content": "Importante: El número 0 no se considera un número natural en todas las definiciones. En este curso, usaremos la definición que incluye solo números positivos a partir del 1.",
+      "props": {
+        "type": "info",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b7",
+      "type": "heading",
+      "content": "Propiedades de los Números Naturales",
+      "props": {
+        "level": "h2",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b8",
+      "type": "list",
+      "items": [
+        "Son infinitos: no hay un número natural mayor.",
+        "Son discretos: entre dos números naturales consecutivos no hay otro número natural.",
+        "Tienen un orden: se pueden comparar usando mayor que (>) o menor que (<).",
+        "Son cerrados bajo la suma: la suma de dos números naturales siempre es otro número natural."
+      ],
+      "props": {
+        "listType": "unordered",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b9",
+      "type": "heading",
+      "content": "Suma de Números Naturales",
+      "props": {
+        "level": "h2",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b10",
+      "type": "paragraph",
+      "content": "La suma es una operación básica que combina dos o más números naturales para obtener un total. Por ejemplo, 3 + 4 = 7.",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b11",
+      "type": "callout",
+      "content": "Propiedad conmutativa: El orden de los sumandos no altera el resultado. Ejemplo: 5 + 3 = 3 + 5.",
+      "props": {
+        "type": "success",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b12",
+      "type": "quiz",
+      "question": "¿Cuál de los siguientes conjuntos representa correctamente los números naturales?",
+      "options": [
+        "{0, 1, 2, 3, ...}",
+        "{1, 2, 3, 4, ...}",
+        "{-1, 0, 1, 2, ...}",
+        "{2, 4, 6, 8, ...}"
+      ],
+      "correctIndex": 1,
+      "feedback": "Correcto: Los números naturales comienzan desde 1 y son infinitos.",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b13",
+      "type": "quiz",
+      "question": "Si sumas 7 + 5, ¿cuál es el resultado?",
+      "options": [
+        "11",
+        "12",
+        "13",
+        "14"
+      ],
+      "correctIndex": 1,
+      "feedback": "¡Bien! 7 + 5 = 12.",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b14",
+      "type": "quiz",
+      "question": "¿La suma de dos números naturales siempre es un número natural?",
+      "options": [
+        "Sí",
+        "No",
+        "Solo si son pares",
+        "Depende del orden"
+      ],
+      "correctIndex": 0,
+      "feedback": "Exacto: Los números naturales son cerrados bajo la suma.",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b15",
+      "type": "heading",
+      "content": "Resumen",
+      "props": {
+        "level": "h2",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b16",
+      "type": "list",
+      "items": [
+        "Los números naturales son 1, 2, 3, 4, ...",
+        "Tienen propiedades como infinitud, orden y cierre bajo la suma.",
+        "La suma es conmutativa: a + b = b + a.",
+        "Practica con ejercicios para reforzar el aprendizaje."
+      ],
+      "props": {
+        "listType": "unordered",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b17",
+      "type": "callout",
+      "content": "Sigue practicando con más ejercicios para dominar los números naturales.",
+      "props": {
+        "type": "warning",
+        "padding": "medium"
+      }
+    }
+  ],
+  "metadata": {
+    "author": "Juan Pérez",
+    "tags": [
+      "generado",
+      "ia",
+      "educativo",
+      "matemáticas - introducción a los números naturales"
+    ],
+    "category": "educativo",
+    "difficulty": "básico",
+    "estimatedTime": 45,
+    "language": "es",
+    "learning_objectives": [
+      "Comprender la definición de números naturales",
+      "Identificar las propiedades de los números naturales",
+      "Aprender operaciones básicas de suma con números naturales"
+    ],
+    "content_type": "presentación"
+  },
+  "settings": {
+    "theme": "light",
+    "fontSize": "medium",
+    "showOutline": true,
+    "allowComments": true,
+    "allowCollaboration": false
+  },
+  "createdAt": "2025-09-28T02:31:32.849707+00:00",
+  "updatedAt": "2025-09-28T02:31:32.849707+00:00",
+  "version": 1
+}

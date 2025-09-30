@@ -1,0 +1,341 @@
+{
+  "id": "doc_1759036511",
+  "title": "Matemáticas - Probabilidad: distribuciones discretas y continuas - Avanzado",
+  "description": "Contenido educativo generado con IA - Matemáticas - Probabilidad: distribuciones discretas y continuas",
+  "blocks": [
+    {
+      "id": "b1",
+      "type": "hero",
+      "title": "Distribuciones de Probabilidad: Discretas y Continuas",
+      "subtitle": "Matemáticas Avanzadas - Teoría de Probabilidad",
+      "body": "Exploración profunda de las distribuciones fundamentales en probabilidad y sus aplicaciones prácticas",
+      "media": {
+        "type": "image",
+        "src": "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80"
+      },
+      "props": {
+        "background": "gradient",
+        "alignment": "center",
+        "padding": "large"
+      }
+    },
+    {
+      "id": "b2",
+      "type": "paragraph",
+      "content": "Las distribuciones de probabilidad son herramientas fundamentales en estadística y probabilidad que describen cómo se distribuyen las probabilidades entre los posibles valores de una variable aleatoria. En este módulo avanzado, exploraremos las diferencias clave entre distribuciones discretas y continuas, sus propiedades matemáticas, y aplicaciones en problemas del mundo real.",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b3",
+      "type": "list",
+      "title": "Objetivos de Aprendizaje",
+      "items": [
+        "Comprender la diferencia fundamental entre variables aleatorias discretas y continuas",
+        "Dominar las principales distribuciones discretas: Binomial, Poisson, Geométrica",
+        "Analizar distribuciones continuas clave: Normal, Uniforme, Exponencial",
+        "Aplicar funciones de densidad de probabilidad y funciones de distribución acumulada",
+        "Resolver problemas complejos utilizando propiedades de esperanza y varianza"
+      ],
+      "props": {
+        "type": "unordered",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b4",
+      "type": "heading",
+      "content": "Variables Aleatorias Discretas",
+      "props": {
+        "level": "h2",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b5",
+      "type": "paragraph",
+      "content": "Una variable aleatoria discreta toma valores contables, generalmente enteros. Su comportamiento se describe mediante una función de masa de probabilidad (PMF) que asigna probabilidades a cada valor posible.",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b6",
+      "type": "callout",
+      "content": "Las variables discretas tienen espacios muestrales finitos o infinitos numerables. La suma de todas las probabilidades en la PMF debe ser igual a 1.",
+      "props": {
+        "type": "info",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b7",
+      "type": "heading",
+      "content": "Distribución Binomial",
+      "props": {
+        "level": "h3",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b8",
+      "type": "paragraph",
+      "content": "Modela el número de éxitos en n ensayos independientes de Bernoulli. Parámetros: n (número de ensayos) y p (probabilidad de éxito).",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b9",
+      "type": "code",
+      "content": "PMF: P(X = k) = C(n,k) * p^k * (1-p)^(n-k)\nEsperanza: E[X] = np\nVarianza: Var(X) = np(1-p)",
+      "props": {
+        "language": "latex",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b10",
+      "type": "quiz",
+      "question": "En una distribución Binomial con n=10 y p=0.3, ¿cuál es la probabilidad de exactamente 4 éxitos?",
+      "options": [
+        "0.2001",
+        "0.2501",
+        "0.3001",
+        "0.3501"
+      ],
+      "correctAnswer": 0,
+      "explanation": "Usando la fórmula binomial: C(10,4) * (0.3)^4 * (0.7)^6 = 210 * 0.0081 * 0.117649 ≈ 0.2001",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b11",
+      "type": "heading",
+      "content": "Distribución de Poisson",
+      "props": {
+        "level": "h3",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b12",
+      "type": "paragraph",
+      "content": "Modela el número de eventos que ocurren en un intervalo fijo de tiempo o espacio. Parámetro: λ (tasa promedio de ocurrencia).",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b13",
+      "type": "callout",
+      "content": "La distribución Poisson es particularmente útil para modelar eventos raros y tiene la propiedad de que su esperanza y varianza son iguales a λ.",
+      "props": {
+        "type": "warning",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b14",
+      "type": "heading",
+      "content": "Variables Aleatorias Continuas",
+      "props": {
+        "level": "h2",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b15",
+      "type": "paragraph",
+      "content": "Las variables continuas pueden tomar cualquier valor en un intervalo. Se describen mediante funciones de densidad de probabilidad (PDF), donde la probabilidad en un punto específico es cero, y las probabilidades se calculan sobre intervalos.",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b16",
+      "type": "heading",
+      "content": "Distribución Normal",
+      "props": {
+        "level": "h3",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b17",
+      "type": "paragraph",
+      "content": "La distribución más importante en estadística. Completamente determinada por sus parámetros μ (media) y σ (desviación estándar).",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b18",
+      "type": "code",
+      "content": "PDF: f(x) = (1/√(2πσ²)) * e^(-(x-μ)²/(2σ²))\nPropiedades: Simétrica, campana de Gauss, 68-95-99.7 rule",
+      "props": {
+        "language": "latex",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b19",
+      "type": "quiz",
+      "question": "En una distribución Normal estándar (μ=0, σ=1), ¿qué porcentaje de datos cae entre -1 y 1?",
+      "options": [
+        "50%",
+        "68%",
+        "95%",
+        "99.7%"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Por la regla empírica, aproximadamente el 68% de los datos cae dentro de una desviación estándar de la media.",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b20",
+      "type": "heading",
+      "content": "Distribución Uniforme Continua",
+      "props": {
+        "level": "h3",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b21",
+      "type": "paragraph",
+      "content": "Todos los valores en el intervalo [a,b] tienen igual probabilidad de ocurrir. La PDF es constante en el intervalo.",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b22",
+      "type": "callout",
+      "content": "La distribución uniforme es fundamental en simulación y muestreo aleatorio. Su simplicidad la hace ideal para muchos problemas teóricos.",
+      "props": {
+        "type": "success",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b23",
+      "type": "heading",
+      "content": "Comparación y Aplicaciones",
+      "props": {
+        "level": "h2",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b24",
+      "type": "list",
+      "title": "Puntos Clave de Diferenciación",
+      "items": [
+        "Discretas: Valores contables, PMF, suma de probabilidades = 1",
+        "Continuas: Valores en intervalos, PDF, área bajo la curva = 1",
+        "Discretas: Probabilidad en puntos específicos",
+        "Continuas: Probabilidad solo en intervalos (P(X=x) = 0)",
+        "Esperanza: Σ x·P(X=x) vs ∫ x·f(x)dx",
+        "Varianza: E[(X-μ)²] calculada de forma similar"
+      ],
+      "props": {
+        "type": "unordered",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b25",
+      "type": "quiz",
+      "question": "¿Cuál de estas afirmaciones es FALSA sobre distribuciones de probabilidad?",
+      "options": [
+        "La PDF de una distribución continua puede ser mayor que 1",
+        "La suma de todas las probabilidades en una PMF debe ser 1",
+        "La distribución Normal es simétrica alrededor de su media",
+        "La distribución Poisson es discreta"
+      ],
+      "correctAnswer": 0,
+      "explanation": "La PDF puede ser mayor que 1 en puntos específicos, pero el área total bajo la curva debe ser 1. Las otras afirmaciones son verdaderas.",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b26",
+      "type": "form",
+      "title": "Evaluación de Comprensión",
+      "fields": [
+        {
+          "type": "text",
+          "label": "Nombre",
+          "required": true
+        },
+        {
+          "type": "email",
+          "label": "Email",
+          "required": true
+        },
+        {
+          "type": "textarea",
+          "label": "Explica con tus palabras la diferencia fundamental entre una variable aleatoria discreta y continua",
+          "required": true
+        },
+        {
+          "type": "select",
+          "label": "¿Qué distribución usarías para modelar el número de clientes que llegan a un banco en una hora?",
+          "options": [
+            "Binomial",
+            "Poisson",
+            "Normal",
+            "Uniforme"
+          ],
+          "required": true
+        }
+      ],
+      "props": {
+        "padding": "large"
+      }
+    },
+    {
+      "id": "b27",
+      "type": "callout",
+      "content": "El dominio de estas distribuciones es esencial para avanzar en inferencia estadística, machine learning, y análisis de datos. Practica con problemas aplicados para solidificar tu comprensión.",
+      "props": {
+        "type": "error",
+        "padding": "medium"
+      }
+    }
+  ],
+  "metadata": {
+    "author": "Juan Pérez",
+    "tags": [
+      "generado",
+      "ia",
+      "educativo",
+      "matemáticas - probabilidad: distribuciones discretas y continuas"
+    ],
+    "category": "educativo",
+    "difficulty": "avanzado",
+    "estimatedTime": 45,
+    "language": "es",
+    "learning_objectives": [
+      "Aprender sobre Matemáticas - Probabilidad: distribuciones discretas y continuas",
+      "Entender los conceptos fundamentales de Matemáticas - Probabilidad: distribuciones discretas y continuas"
+    ],
+    "content_type": "guía de estudio"
+  },
+  "settings": {
+    "theme": "light",
+    "fontSize": "medium",
+    "showOutline": true,
+    "allowComments": true,
+    "allowCollaboration": false
+  },
+  "createdAt": "2025-09-28T05:15:11.593099+00:00",
+  "updatedAt": "2025-09-28T05:15:11.593099+00:00",
+  "version": 1
+}
