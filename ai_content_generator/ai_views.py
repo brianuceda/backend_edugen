@@ -8,6 +8,10 @@ from rest_framework import status
 from openai import OpenAI
 import requests
 from django.utils import timezone
+import logging
+
+logger = logging.getLogger(__name__)
+from django.conf import settings
 
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
@@ -31,11 +35,38 @@ def generate_gamma_blocks(request):
     try:
         # Verificar si el cliente está disponible
         if not client:
+            # Devolver bloques de ejemplo cuando la API no está configurada
+            example_blocks = [
+                {
+                    "id": "b1",
+                    "type": "hero",
+                    "title": "Contenido Educativo",
+                    "subtitle": "Generado automáticamente",
+                    "body": f"Este es contenido de ejemplo sobre: {prompt}",
+                    "media": {
+                        "type": "icon",
+                        "value": "📚"
+                    },
+                    "props": {
+                        "alignment": "center",
+                        "padding": "large"
+                    }
+                },
+                {
+                    "id": "b2",
+                    "type": "paragraph",
+                    "content": "Para habilitar la generación real de contenido con IA, configure la variable de entorno DEEPSEEK_API_KEY con su clave de API de DeepSeek.",
+                    "props": {
+                        "alignment": "left",
+                        "padding": "medium"
+                    }
+                }
+            ]
             return Response({
-                "success": False,
-                "error": "API key de DeepSeek no configurada. Por favor, configure DEEPSEEK_API_KEY en las variables de entorno.",
-                "blocks": []
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                "success": True,
+                "blocks": example_blocks,
+                "message": "Bloques de ejemplo generados (API key no configurada)"
+            }, status=status.HTTP_200_OK)
         
         # Crear el prompt específico para generar bloques Gamma
         system_prompt = f"""Eres un generador de bloques educativos para el editor Gamma. 
@@ -469,7 +500,27 @@ def confirm_and_generate_content(request):
         from .services import DeepSeekChatService
         
         service = DeepSeekChatService()
-        gamma_content = service.generate_content(requirements)
+        try:
+            gamma_content = service.generate_content(requirements)
+        except Exception as e:
+            # Como última instancia, construir contenido mínimo local
+            logger.exception("Error generando contenido Gamma, usando respaldo local: %s", str(e))
+            subject = requirements.get('subject', 'Contenido Educativo')
+            blocks = [{
+                'id': 'b1',
+                'type': 'paragraph',
+                'content': f"No se pudo contactar a IA. Respaldo local para: {subject}",
+                'props': {'padding': 'medium'}
+            }]
+            gamma_content = {
+                'blocks': blocks,
+                'document': {
+                    'title': 'Contenido de Respaldo',
+                    'description': f'Respaldo generado localmente para {subject}',
+                    'blocks': blocks
+                },
+                'fallback': True
+            }
         
         if not gamma_content or 'blocks' not in gamma_content:
             return Response({
@@ -478,6 +529,9 @@ def confirm_and_generate_content(request):
                 "content": None
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
+        # Si hubo fallback, seguimos pero indicamos en el mensaje
+        fallback_used = bool(gamma_content.get('fallback'))
+
         blocks = gamma_content.get('blocks', [])
         
         # Crear el documento Gamma completo
@@ -528,6 +582,21 @@ def confirm_and_generate_content(request):
             is_public=False
         )
         
+        # Guardar archivo JSON adicional en media/materials/
+        try:
+            import os
+            materials_dir = os.path.join(settings.MEDIA_ROOT, 'materials', f'content_{generated_content.id}')
+            os.makedirs(materials_dir, exist_ok=True)
+            file_path = os.path.join(materials_dir, 'gamma_content.json')
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(gamma_document, f, ensure_ascii=False, indent=2)
+            relative_path = f"materials/content_{generated_content.id}/gamma_content.json"
+            file_url = f"{settings.MEDIA_URL}{relative_path}"
+        except Exception:
+            # Si falla el guardado de archivo, continuar sin bloquear la respuesta
+            relative_path = None
+            file_url = None
+        
         return Response({
             "success": True,
             "content": {
@@ -537,10 +606,12 @@ def confirm_and_generate_content(request):
                 "content_type": generated_content.content_type,
                 "gamma_blocks": generated_content.gamma_blocks,
                 "gamma_document": generated_content.gamma_document,
+                "media_file_path": relative_path,
+                "media_file_url": file_url,
                 "created_at": generated_content.created_at.isoformat(),
                 "updated_at": generated_content.updated_at.isoformat()
             },
-            "message": "Contenido generado exitosamente"
+            "message": "Contenido generado exitosamente" + (" (respaldo)" if fallback_used else "")
         }, status=status.HTTP_201_CREATED)
         
     except Exception as e:

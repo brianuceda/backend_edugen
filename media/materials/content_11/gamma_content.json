@@ -1,0 +1,309 @@
+{
+  "id": "doc_1759036876",
+  "title": "Matemáticas - Modelación matemática de fenómenos reales - Avanzado",
+  "description": "Contenido educativo generado con IA - Matemáticas - Modelación matemática de fenómenos reales",
+  "blocks": [
+    {
+      "id": "b1",
+      "type": "hero",
+      "title": "Modelación Matemática de Fenómenos Reales",
+      "subtitle": "Crecimiento Poblacional y Modelos Lineales",
+      "body": "Aprende a identificar patrones en datos reales y desarrollar modelos matemáticos para predecir comportamientos futuros",
+      "media": {
+        "type": "image",
+        "src": "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80"
+      },
+      "props": {
+        "background": "gradient",
+        "alignment": "center",
+        "padding": "large"
+      }
+    },
+    {
+      "id": "b2",
+      "type": "paragraph",
+      "content": "La modelación matemática nos permite transformar fenómenos del mundo real en representaciones matemáticas que pueden ser analizadas y utilizadas para hacer predicciones. En este módulo avanzado, nos enfocaremos en el estudio del crecimiento poblacional utilizando modelos lineales, herramientas fundamentales para entender tendencias y patrones en datos demográficos.",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b3",
+      "type": "callout",
+      "content": "Los modelos lineales son especialmente útiles cuando el crecimiento o decrecimiento de una población sigue un patrón constante a lo largo del tiempo.",
+      "props": {
+        "type": "info",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b4",
+      "type": "heading",
+      "content": "Objetivos de Aprendizaje",
+      "props": {
+        "level": "h2",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b5",
+      "type": "list",
+      "items": [
+        "Identificar patrones de crecimiento constante en datos poblacionales reales",
+        "Desarrollar y validar modelos lineales para representar el crecimiento poblacional",
+        "Utilizar hojas de cálculo para el análisis y visualización de datos demográficos",
+        "Interpretar los parámetros del modelo (pendiente e intercepto) en contexto real"
+      ],
+      "props": {
+        "type": "unordered",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b6",
+      "type": "heading",
+      "content": "Fundamentos de los Modelos Lineales",
+      "props": {
+        "level": "h2",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b7",
+      "type": "paragraph",
+      "content": "Un modelo lineal representa una relación directamente proporcional entre dos variables. En el contexto del crecimiento poblacional, la ecuación general es: P(t) = P₀ + rt, donde P(t) es la población en el tiempo t, P₀ es la población inicial, r es la tasa de crecimiento constante, y t es el tiempo.",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b8",
+      "type": "callout",
+      "content": "La pendiente (r) en el modelo lineal representa la tasa de crecimiento por unidad de tiempo. Un valor positivo indica crecimiento, mientras que un valor negativo indica decrecimiento.",
+      "props": {
+        "type": "warning",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b9",
+      "type": "heading",
+      "content": "Ejemplo Práctico: Crecimiento Poblacional de una Ciudad",
+      "props": {
+        "level": "h3",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b10",
+      "type": "paragraph",
+      "content": "Consideremos los datos de población de una ciudad durante 5 años:\n\nAño 2020: 50,000 habitantes\nAño 2021: 52,000 habitantes\nAño 2022: 54,000 habitantes\nAño 2023: 56,000 habitantes\nAño 2024: 58,000 habitantes",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b11",
+      "type": "quiz",
+      "question": "¿Cuál es la tasa de crecimiento anual constante de esta población?",
+      "options": [
+        "1,000 habitantes/año",
+        "2,000 habitantes/año",
+        "5,000 habitantes/año",
+        "10,000 habitantes/año"
+      ],
+      "correctAnswer": 1,
+      "explanation": "La población aumenta 2,000 habitantes cada año (52,000-50,000 = 2,000, 54,000-52,000 = 2,000, etc.), por lo tanto la tasa de crecimiento es 2,000 habitantes por año.",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b12",
+      "type": "heading",
+      "content": "Uso de Hojas de Cálculo para Análisis",
+      "props": {
+        "level": "h2",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b13",
+      "type": "paragraph",
+      "content": "Las hojas de cálculo como Excel o Google Sheets son herramientas poderosas para el análisis de datos poblacionales. Podemos utilizar funciones como LINEST o herramientas de regresión lineal para encontrar el modelo que mejor se ajuste a nuestros datos.",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b14",
+      "type": "code",
+      "content": "// Ejemplo de fórmula en Google Sheets para calcular pendiente\n=SLOPE(B2:B6, A2:A6)\n\n// Donde:\n// A2:A6 contiene los años (2020, 2021, 2022, 2023, 2024)\n// B2:B6 contiene las poblaciones (50000, 52000, 54000, 56000, 58000)",
+      "props": {
+        "language": "plaintext",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b15",
+      "type": "quiz",
+      "question": "Si aplicamos la función SLOPE a los datos del ejemplo anterior, ¿qué valor obtendríamos?",
+      "options": [
+        "1000",
+        "2000",
+        "50000",
+        "2020"
+      ],
+      "correctAnswer": 1,
+      "explanation": "La función SLOPE calcularía la pendiente de la recta que mejor se ajusta a los datos, que en este caso es 2000 habitantes por año.",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b16",
+      "type": "heading",
+      "content": "Validación del Modelo",
+      "props": {
+        "level": "h2",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b17",
+      "type": "paragraph",
+      "content": "Una vez desarrollado el modelo lineal, es crucial validar su precisión comparando las predicciones con datos reales. El coeficiente de determinación (R²) nos indica qué porcentaje de la variación en los datos es explicado por el modelo.",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b18",
+      "type": "callout",
+      "content": "Un valor de R² cercano a 1 indica que el modelo lineal explica la mayor parte de la variación en los datos, mientras que valores bajos sugieren que podrían existir otros factores influyentes.",
+      "props": {
+        "type": "success",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b19",
+      "type": "heading",
+      "content": "Ejercicio de Aplicación",
+      "props": {
+        "level": "h2",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b20",
+      "type": "paragraph",
+      "content": "Utilizando los datos proporcionados, desarrolla un modelo lineal para predecir la población de la ciudad en el año 2025 y 2030.",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b21",
+      "type": "form",
+      "fields": [
+        {
+          "type": "number",
+          "label": "Población estimada para 2025",
+          "required": true
+        },
+        {
+          "type": "number",
+          "label": "Población estimada para 2030",
+          "required": true
+        },
+        {
+          "type": "text",
+          "label": "Explica tu procedimiento",
+          "required": false
+        }
+      ],
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b22",
+      "type": "quiz",
+      "question": "¿Qué limitaciones podrían tener los modelos lineales para predecir crecimiento poblacional a largo plazo?",
+      "options": [
+        "Siempre son exactos",
+        "No consideran factores como recursos limitados",
+        "Solo funcionan para poblaciones pequeñas",
+        "No pueden predecir más de 5 años"
+      ],
+      "correctAnswer": 1,
+      "explanation": "Los modelos lineales asumen crecimiento constante infinito, pero en la realidad factores como disponibilidad de recursos, espacio y condiciones ambientales pueden limitar el crecimiento poblacional.",
+      "props": {
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b23",
+      "type": "heading",
+      "content": "Puntos Clave para Recordar",
+      "props": {
+        "level": "h2",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b24",
+      "type": "list",
+      "items": [
+        "Los modelos lineales son útiles cuando el crecimiento sigue un patrón constante",
+        "La pendiente representa la tasa de cambio por unidad de tiempo",
+        "Las hojas de cálculo facilitan el cálculo y visualización de modelos",
+        "La validación del modelo es esencial para asegurar su utilidad práctica",
+        "Los modelos tienen limitaciones y deben usarse con criterio"
+      ],
+      "props": {
+        "type": "ordered",
+        "padding": "medium"
+      }
+    },
+    {
+      "id": "b25",
+      "type": "callout",
+      "content": "¡Excelente trabajo! Has completado la introducción a la modelación matemática de crecimiento poblacional. Continúa practicando con diferentes conjuntos de datos para fortalecer tus habilidades.",
+      "props": {
+        "type": "success",
+        "padding": "medium"
+      }
+    }
+  ],
+  "metadata": {
+    "author": "Juan Pérez",
+    "tags": [
+      "generado",
+      "ia",
+      "educativo",
+      "matemáticas - modelación matemática de fenómenos reales"
+    ],
+    "category": "educativo",
+    "difficulty": "avanzado",
+    "estimatedTime": 45,
+    "language": "es",
+    "learning_objectives": [
+      "Identificar patrones en datos reales de crecimiento poblacional",
+      "Desarrollar modelos lineales (crecimiento constante)",
+      "Utilizar hojas de cálculo para análisis de datos"
+    ],
+    "content_type": "lecture_notes"
+  },
+  "settings": {
+    "theme": "light",
+    "fontSize": "medium",
+    "showOutline": true,
+    "allowComments": true,
+    "allowCollaboration": false
+  },
+  "createdAt": "2025-09-28T05:21:16.440284+00:00",
+  "updatedAt": "2025-09-28T05:21:16.440284+00:00",
+  "version": 1
+}

@@ -36,16 +36,8 @@ class Migration(migrations.Migration):
                 ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
             ],
         ),
-        migrations.CreateModel(
-            name='GeneratedContent',
-            fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.CharField(max_length=200)),
-                ('content', models.TextField()),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('request', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='content', to='ai_content_generator.generationrequest')),
-            ],
-        ),
+        # NOTE: Se removió la creación del modelo GeneratedContent aquí para evitar
+        # duplicado con la migración 0002 que define la tabla definitiva.
         migrations.CreateModel(
             name='Chunk',
             fields=[
